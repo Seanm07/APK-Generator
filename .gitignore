@@ -1,0 +1,11 @@
+# build output
+bin/
+obj/
+Source/publish/
+*.exe
+*.zip
+
+# private / per-user
+Keystores/
+Generated APKs/
+*.settings.json

@@ -1,0 +1,502 @@
+<Window x:Class="ApkGenerator.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:ApkGenerator.App.Controls"
+        Title="APK Generator"
+        Width="1080" Height="960" MinWidth="900" MinHeight="680"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+        AllowDrop="True"
+        PreviewDragEnter="Window_PreviewDragOver" PreviewDragOver="Window_PreviewDragOver"
+        PreviewDragLeave="Window_PreviewDragLeave" PreviewDrop="Window_PreviewDrop"
+        Activated="Window_Activated" Closing="Window_Closing">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="28,20,28,14">
+
+                <!-- Drop zone: shown until a file is loaded -->
+                <Grid Height="150" Visibility="{Binding HasPackage, Converter={StaticResource BoolVisInv}}">
+                    <Rectangle Stroke="{StaticResource MutedBrush}" StrokeThickness="1.5" StrokeDashArray="5 4"
+                               RadiusX="10" RadiusY="10" Fill="{StaticResource CardBrush}" />
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock Style="{StaticResource IconText}" Text="&#xE896;" FontSize="34"
+                                   HorizontalAlignment="Center" Opacity="0.7" />
+                        <TextBlock Text="Drag an AAB or APK file into this window" FontSize="17" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" Margin="0,8,0,0" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+                            <TextBlock Text="or" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <Button Content="Browse…" Click="BrowseFile_Click" Padding="18,6" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!-- File card -->
+                <Border Style="{StaticResource Card}" Visibility="{Binding HasPackage, Converter={StaticResource BoolVis}}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Background="{StaticResource AccentBrush}" CornerRadius="5" Padding="9,3"
+                                    VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock Text="{Binding KindBadge}" Foreground="White" FontWeight="Bold" FontSize="13" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding FileName}" FontSize="19" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Package.FilePath}" />
+                                <TextBlock Style="{StaticResource Muted}" Text="{Binding FileFolder}" FontSize="12"
+                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button Grid.Column="2" Content="Change file…" Click="BrowseFile_Click" Margin="12,0,0,0" />
+                        </Grid>
+
+                        <Rectangle Height="1" Fill="{StaticResource DividerBrush}" Margin="0,14,0,14" />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,16,16">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Package name" />
+                                <TextBlock Text="{Binding PackageNameText}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource FactValue}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding PackageNameIsOffFormat}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource WarningBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,16">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Version" />
+                                <TextBlock Style="{StaticResource FactValue}">
+                                    <Run Text="{Binding VersionNameText, Mode=OneWay}" />
+                                    <Run Text="  (code " FontWeight="Normal" /><Run Text="{Binding VersionCodeText, Mode=OneWay}" FontWeight="Normal" /><Run Text=")" FontWeight="Normal" />
+                                </TextBlock>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,16,16">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Minimum SDK" />
+                                <TextBlock Style="{StaticResource FactValue}" Text="{Binding MinSdkText}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,16,16">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Target SDK" />
+                                <TextBlock Text="{Binding TargetSdkText}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource FactValue}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding TargetSdkIsLow}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource WarningBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,16">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Native code (ABIs)" />
+                                <TextBlock Style="{StaticResource FactValue}" Text="{Binding AbisText}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,16,0">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="{Binding StoreSizeLabel}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource FactValue}" Text="{Binding StoreSizeText}" />
+                                    <ProgressBar IsIndeterminate="True" Width="80" Height="3" Margin="14,2,0,0" VerticalAlignment="Center"
+                                                 Visibility="{Binding IsStoreSizeBusy, Converter={StaticResource BoolVis}}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0"
+                                            Visibility="{Binding StoreSizeError, Converter={StaticResource HasValueVis}}">
+                                    <TextBlock Foreground="{StaticResource ErrorBrush}" Text="{Binding StoreSizeError}" VerticalAlignment="Center" />
+                                    <Button Content="Details" Click="StoreSizeDetails_Click" Margin="10,0,0,0" Padding="10,2" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="2" Grid.Column="2"
+                                        Visibility="{Binding ModulesText, Converter={StaticResource HasValueVis}}">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Bundle modules" />
+                                <TextBlock Style="{StaticResource FactValue}" Text="{Binding ModulesText}" FontWeight="Normal" />
+                            </StackPanel>
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding Warnings}" Margin="0,16,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource WarningTintBrush}" CornerRadius="6" Padding="10,7" Margin="0,0,0,6">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Style="{StaticResource IconText}" Text="&#xE7BA;" Margin="0,0,10,0"
+                                                       Foreground="{StaticResource WarningBrush}" />
+                                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Expander Header="{Binding PermissionsHeader}" Margin="0,8,0,0">
+                            <ItemsControl ItemsSource="{Binding Permissions}" Margin="0,10,0,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border x:Name="Pill" Background="{StaticResource PillBrush}" CornerRadius="11"
+                                                Padding="10,3" Margin="0,0,6,6" ToolTip="{Binding Name}">
+                                            <TextBlock Text="{Binding ShortName}" FontSize="12" />
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsDangerous}" Value="True">
+                                                <Setter TargetName="Pill" Property="Background" Value="{StaticResource WarningTintBrush}" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Expander>
+                    </StackPanel>
+                </Border>
+
+                <!-- Options: greyed out until a file is loaded -->
+                <Grid Margin="0,18,0,0" IsEnabled="{Binding HasPackage}">
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasPackage}" Value="False">
+                                    <Setter Property="Opacity" Value="0.42" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Device + install options -->
+                    <Border Grid.Column="0" Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="Target device" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="DeviceCombo" ItemsSource="{Binding Devices.Choices}" SelectedItem="{Binding Devices.Selected}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsReady}" Value="False">
+                                                                <Setter Property="Opacity" Value="0.55" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <Button x:Name="RefreshButton" Grid.Column="1" Style="{StaticResource IconButton}" Content="&#xE72C;"
+                                        AutomationProperties.Name="Refresh devices"
+                                        ToolTip="Refresh the device list" Click="RefreshDevices_Click" />
+                            </Grid>
+
+                            <Grid Margin="0,8,0,0" Visibility="{Binding Devices.ShowIpEntry, Converter={StaticResource BoolVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="IpBox" Text="{Binding Devices.IpAddress, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="Device IP address, e.g. 192.168.1.50 or 192.168.1.50:5555 (wireless debugging must be on)"
+                                         KeyDown="IpBox_KeyDown" />
+                                <Button Grid.Column="1" Content="Connect" Click="Connect_Click" Margin="8,0,0,0" Padding="16,5"
+                                        VerticalAlignment="Stretch"
+                                        IsEnabled="{Binding Devices.IsConnecting, Converter={StaticResource InvertBool}}" />
+                            </Grid>
+
+                            <TextBlock Margin="0,8,0,0" FontSize="12" TextWrapping="Wrap" Text="{Binding Devices.StatusText}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Opacity" Value="0.68" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Devices.StatusIsError}" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
+                                                <Setter Property="Opacity" Value="1" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <Rectangle Height="1" Fill="{StaticResource DividerBrush}" Margin="0,16,0,16" />
+
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="Install options" />
+
+                            <CheckBox x:Name="AllowDowngradeCheck" IsChecked="{Binding AllowDowngrade}" Content="Allow version downgrade" Margin="0,0,0,10"
+                                      ToolTip="Install even if the device already has a higher version code. Android only allows this for debuggable apps." />
+                            <CheckBox x:Name="UninstallConflictCheck" IsChecked="{Binding UninstallConflicting}" Margin="0,0,0,10"
+                                      AutomationProperties.Name="Uninstall conflicting versions if needed"
+                                      ToolTip="If the install is refused because the installed copy is signed with a different key (or is newer), uninstall it and try again. This deletes the installed app's data.">
+                                <TextBlock>
+                                    <Run Text="Uninstall conflicting versions if needed" /><Run Text="  (deletes the app's data)" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox x:Name="ClearDataCheck" IsChecked="{Binding ClearData}" Content="Force clear app data after installing" Margin="0,0,0,10"
+                                      ToolTip="Runs 'pm clear' after installing so the app starts from a fresh state." />
+                            <CheckBox x:Name="GrantPermsCheck" IsChecked="{Binding GrantPermissions}" Content="Grant all permissions" Margin="0,0,0,10"
+                                      ToolTip="Grants every permission the app requests, so no runtime permission prompts appear." />
+                            <CheckBox x:Name="LaunchCheck" IsChecked="{Binding LaunchAfterInstall}" Content="Launch the app after installing" Margin="0"
+                                      ToolTip="Untick to install without opening the app." />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Signing -->
+                    <Border Grid.Column="2" Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="Signing" />
+                            <CheckBox x:Name="SignCheckBox" AutomationProperties.Name="Sign APK"
+                                      IsChecked="{Binding Signing.Enabled}" Margin="0,0,0,6">
+                                <StackPanel>
+                                    <TextBlock Text="Sign APK" />
+                                    <TextBlock Style="{StaticResource Muted}" FontSize="12"
+                                               Text="Unticked: the APK is signed with the Android debug key" />
+                                </StackPanel>
+                            </CheckBox>
+                            <TextBlock Foreground="{StaticResource ErrorBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       Visibility="{Binding Signing.ShowDebugKeyWarning, Converter={StaticResource BoolVis}}"
+                                       Text="No Android debug keystore was found, so an unsigned build can't be installed. Tick Sign APK and choose a keystore." />
+
+                            <StackPanel IsEnabled="{Binding Signing.Enabled}">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Signing.Enabled}" Value="False">
+                                                <Setter Property="Opacity" Value="0.45" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Keystore" Margin="0,8,0,4" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="KeystoreCombo" ItemsSource="{Binding Signing.Keystores}"
+                                              SelectedItem="{Binding Signing.SelectedKeystore}" DisplayMemberPath="Name"
+                                              DropDownOpened="KeystoreCombo_DropDownOpened"
+                                              ToolTip="The keystores in the Keystores folder" />
+                                    <Button Grid.Column="1" Content="Browse…" Click="BrowseKeystore_Click" Margin="8,0,0,0" Padding="14,5"
+                                            VerticalAlignment="Stretch"
+                                            ToolTip="Pick a keystore from anywhere – it is copied into the Keystores folder" />
+                                </Grid>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12" Margin="0,4,0,0"
+                                           Text="{Binding Signing.Notice}"
+                                           Visibility="{Binding Signing.Notice, Converter={StaticResource HasValueVis}}" />
+
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Keystore password" Margin="0,14,0,4" />
+                                <c:SecretBox Secret="{Binding Signing.StorePassword, UpdateSourceTrigger=PropertyChanged}" />
+
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Alias" Margin="0,14,0,4" />
+                                <ComboBox x:Name="AliasCombo" IsEditable="True" ItemsSource="{Binding Signing.Aliases}"
+                                          Text="{Binding Signing.Alias, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Margin="0,4,0,0" FontSize="12" TextWrapping="Wrap" Text="{Binding Signing.AliasStatus}"
+                                           Visibility="{Binding Signing.AliasStatus, Converter={StaticResource HasValueVis}}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Opacity" Value="0.68" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Signing.AliasStatusIsError}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
+                                                    <Setter Property="Opacity" Value="1" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Signing.AliasStatusIsOk}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                    <Setter Property="Opacity" Value="1" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+
+                                <TextBlock Style="{StaticResource FieldLabel}" Margin="0,14,0,4">
+                                    <Run Text="Alias password" /><Run Text="  (blank = same as keystore password)" FontSize="11" />
+                                </TextBlock>
+                                <c:SecretBox Secret="{Binding Signing.AliasPassword, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Actions: pinned so they never scroll out of view -->
+        <Grid Grid.Row="1" Margin="28,2,28,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="InstallButton" Style="{StaticResource PrimaryButton}" Click="Install_Click" IsEnabled="{Binding CanInstall}"
+                        AutomationProperties.AutomationId="InstallButton">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource IconText}" Text="&#xE768;" Margin="0,0,10,0" />
+                        <TextBlock Text="{Binding InstallButtonText}" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="SaveButton" Margin="10,0,0,0" Padding="22,9" Click="Save_Click" IsEnabled="{Binding CanSave}"
+                        AutomationProperties.AutomationId="SaveButton"
+                        ToolTip="Build an installable APK from this file (signed as set above) and save it where you choose">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource IconText}" Text="&#xE74E;" Margin="0,0,10,0" />
+                        <TextBlock Text="{Binding SaveButtonText}" />
+                    </StackPanel>
+                </Button>
+                <!-- Only exists once FTP details have been entered in Settings -->
+                <Button x:Name="SaveFtpButton" Margin="10,0,0,0" Padding="22,9" Click="SaveFtp_Click" IsEnabled="{Binding CanSave}"
+                        Visibility="{Binding FtpConfigured, Converter={StaticResource BoolVis}}"
+                        AutomationProperties.AutomationId="SaveFtpButton"
+                        ToolTip="Build the APK (signed as set above) and upload it to the FTP folder set in Settings">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource IconText}" Text="&#xE898;" Margin="0,0,10,0" />
+                        <TextBlock Text="{Binding SaveFtpButtonText}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+            <Button x:Name="SettingsButton" Grid.Column="1" Style="{StaticResource IconButton}" Margin="0"
+                    Content="&#xE713;" FontSize="18" MinWidth="44" Click="Settings_Click"
+                    AutomationProperties.Name="Settings" AutomationProperties.AutomationId="SettingsButton"
+                    ToolTip="Settings" />
+        </Grid>
+
+        <!-- Status, results and errors -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="28,0,28,10" Padding="16,12">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource IconText}" FontSize="18" Margin="0,0,10,0"
+                               Text="{Binding Kind, Converter={StaticResource StatusKindConv}, ConverterParameter=glyph}"
+                               Foreground="{Binding Kind, Converter={StaticResource StatusKindConv}, ConverterParameter=brush}" />
+                    <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontSize="15" FontWeight="SemiBold"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusText}" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <Button Content="Show in folder" Click="OpenFolder_Click" Margin="8,0,0,0" Padding="14,4"
+                                Visibility="{Binding HasResult, Converter={StaticResource BoolVis}}" />
+                        <Button Content="Cancel" Click="Cancel_Click" Margin="8,0,0,0" Padding="16,4"
+                                Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}" />
+                        <ToggleButton x:Name="LogToggle" Content="Output log" Margin="8,0,0,0" Padding="14,4" />
+                    </StackPanel>
+                </Grid>
+
+                <ProgressBar IsIndeterminate="True" Height="3" Margin="0,10,0,0"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}" />
+
+                <ItemsControl ItemsSource="{Binding DeviceResults}" Margin="0,10,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="26" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Style="{StaticResource IconText}"
+                                           Text="{Binding State, Converter={StaticResource RowStateConv}, ConverterParameter=glyph}"
+                                           Foreground="{Binding State, Converter={StaticResource RowStateConv}, ConverterParameter=brush}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" Margin="0,0,12,0" />
+                                <TextBlock Grid.Column="2" Text="{Binding Message}" TextWrapping="Wrap" Opacity="0.85" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border Visibility="{Binding HasError, Converter={StaticResource BoolVis}}"
+                        Background="{StaticResource ErrorTintBrush}" BorderBrush="{StaticResource ErrorBrush}"
+                        BorderThickness="3,0,0,0" CornerRadius="6" Padding="14,12" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Error.Title}" FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Error.Hint}" TextWrapping="Wrap" Margin="0,4,0,0" Opacity="0.9"
+                                   Visibility="{Binding Error.Hint, Converter={StaticResource HasValueVis}}" />
+                        <TextBox Text="{Binding Error.Technical, Mode=OneWay}" IsReadOnly="True" FontFamily="{StaticResource MonoFont}"
+                                 FontSize="12" MaxHeight="120" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,10,0,0"
+                                 Visibility="{Binding Error.Technical, Converter={StaticResource HasValueVis}}" />
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button Content="Copy details" Click="CopyError_Click" Padding="14,4" />
+                            <Button Content="Dismiss" Click="DismissError_Click" Padding="14,4" Margin="8,0,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Grid Margin="0,10,0,0"
+                      Visibility="{Binding IsChecked, ElementName=LogToggle, Converter={StaticResource BoolVis}}">
+                    <TextBox x:Name="LogBox" Text="{Binding LogText, Mode=OneWay}" IsReadOnly="True"
+                             FontFamily="{StaticResource MonoFont}" FontSize="12" Height="170"
+                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap"
+                             TextChanged="LogBox_TextChanged" />
+                    <Button Content="Clear" Click="ClearLog_Click" HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Margin="0,6,22,0" Padding="10,2" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Row="3" Margin="30,0,28,10" FontSize="11.5" TextWrapping="Wrap" Text="{Binding ToolsSummary}">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Opacity" Value="0.6" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ToolsHaveProblem}" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
+                            <Setter Property="Opacity" Value="1" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
+
+        <!-- Shown while a file is dragged over the window -->
+        <Border x:Name="DropOverlay" Grid.RowSpan="4" Visibility="Collapsed" IsHitTestVisible="False" Margin="10"
+                Background="{StaticResource AccentTintBrush}" BorderBrush="{StaticResource AccentBrush}"
+                BorderThickness="3" CornerRadius="14">
+            <TextBlock Text="Drop to open" FontSize="30" FontWeight="SemiBold" HorizontalAlignment="Center"
+                       VerticalAlignment="Center" Foreground="{StaticResource AccentBrush}" />
+        </Border>
+    </Grid>
+</Window>
