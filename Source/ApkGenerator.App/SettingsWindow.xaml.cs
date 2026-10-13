@@ -1,5 +1,5 @@
 using System.Windows;
-using ApkGenerator.App.ViewModels;
+using ApkGenerator.Core.ViewModels;
 using ApkGenerator.Core;
 
 namespace ApkGenerator.App;

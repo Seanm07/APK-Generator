@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
-using ApkGenerator.App.ViewModels;
+using ApkGenerator.Core.ViewModels;
 
 namespace ApkGenerator.App;
 

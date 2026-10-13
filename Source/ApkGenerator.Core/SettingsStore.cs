@@ -120,6 +120,7 @@ public sealed class SettingsStore
         if (File.Exists(fallback)) return fallback;
         try
         {
+            Directory.CreateDirectory(paths.BaseDir);   // first run on macOS: the data folder doesn't exist yet
             var probe = Path.Combine(paths.BaseDir, ".write-test-" + Guid.NewGuid().ToString("N"));
             File.WriteAllText(probe, "");
             File.Delete(probe);

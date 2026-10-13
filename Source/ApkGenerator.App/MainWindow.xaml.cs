@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using ApkGenerator.App.ViewModels;
+using ApkGenerator.Core.ViewModels;
 using Microsoft.Win32;
 
 namespace ApkGenerator.App;

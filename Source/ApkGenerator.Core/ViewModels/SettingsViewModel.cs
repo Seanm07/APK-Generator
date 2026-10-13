@@ -1,6 +1,6 @@
 using ApkGenerator.Core;
 
-namespace ApkGenerator.App.ViewModels;
+namespace ApkGenerator.Core.ViewModels;
 
 /// <summary>Backs the small Settings window (currently the FTP upload details).</summary>
 public sealed class SettingsViewModel : ObservableObject

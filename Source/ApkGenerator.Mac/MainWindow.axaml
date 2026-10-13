@@ -1,0 +1,351 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:ApkGenerator.Mac.Controls"
+        xmlns:local="using:ApkGenerator.Mac"
+        x:Class="ApkGenerator.Mac.MainWindow"
+        Title="APK Generator"
+        Icon="/Assets/icon.png"
+        Width="1080" Height="960" MinWidth="900" MinHeight="680"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid RowDefinitions="*,Auto,Auto,Auto">
+
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="28,20,28,14">
+
+                <!-- Drop zone: shown until a file is loaded -->
+                <Grid Height="150" IsVisible="{Binding !HasPackage}">
+                    <Rectangle Stroke="{StaticResource MutedBrush}" StrokeThickness="1.5" StrokeDashArray="5,4"
+                               RadiusX="10" RadiusY="10" Fill="{StaticResource CardBrush}" />
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <c:Icon Kind="download" Width="34" Height="34" Opacity="0.7" HorizontalAlignment="Center" />
+                        <TextBlock Text="Drag an AAB or APK file into this window" FontSize="17" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" Margin="0,8,0,0" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0" Spacing="10">
+                            <TextBlock Text="or" Classes="muted" VerticalAlignment="Center" />
+                            <Button Content="Browse…" Click="BrowseFile_Click" Padding="18,6" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!-- File card -->
+                <Border Classes="card" IsVisible="{Binding HasPackage}">
+                    <StackPanel>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Background="{StaticResource AccentBrush}" CornerRadius="5" Padding="9,3"
+                                    VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock Text="{Binding KindBadge}" Foreground="White" FontWeight="Bold" FontSize="13" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding FileName}" FontSize="19" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Package.FilePath}" />
+                                <TextBlock Classes="muted" Text="{Binding FileFolder}" FontSize="12"
+                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button Grid.Column="2" Content="Change file…" Click="BrowseFile_Click" Margin="12,0,0,0" />
+                        </Grid>
+
+                        <Rectangle Height="1" Fill="{StaticResource DividerBrush}" Margin="0,14,0,14" />
+
+                        <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto">
+                            <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,16,16">
+                                <TextBlock Classes="label" Text="Package name" />
+                                <TextBlock Classes="fact" Classes.warn="{Binding PackageNameIsOffFormat}" Text="{Binding PackageNameText}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,16">
+                                <TextBlock Classes="label" Text="Version" />
+                                <TextBlock Classes="fact">
+                                    <Run Text="{Binding VersionNameText}" />
+                                    <Run Text="  (code " FontWeight="Normal" /><Run Text="{Binding VersionCodeText}" FontWeight="Normal" /><Run Text=")" FontWeight="Normal" />
+                                </TextBlock>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,16,16">
+                                <TextBlock Classes="label" Text="Minimum SDK" />
+                                <TextBlock Classes="fact" Text="{Binding MinSdkText}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,16,16">
+                                <TextBlock Classes="label" Text="Target SDK" />
+                                <TextBlock Classes="fact" Classes.warn="{Binding TargetSdkIsLow}" Text="{Binding TargetSdkText}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,16">
+                                <TextBlock Classes="label" Text="Native code (ABIs)" />
+                                <TextBlock Classes="fact" Text="{Binding AbisText}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,16,0">
+                                <TextBlock Classes="label" Text="{Binding StoreSizeLabel}" />
+                                <StackPanel Orientation="Horizontal" Spacing="14">
+                                    <TextBlock Classes="fact" Text="{Binding StoreSizeText}" />
+                                    <ProgressBar IsIndeterminate="True" Width="80" Height="3" VerticalAlignment="Center"
+                                                 IsVisible="{Binding IsStoreSizeBusy}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0"
+                                            IsVisible="{Binding StoreSizeError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                    <TextBlock Classes="err" Text="{Binding StoreSizeError}" VerticalAlignment="Center" />
+                                    <Button Content="Details" Click="StoreSizeDetails_Click" Padding="10,2" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="2" Grid.Column="2"
+                                        IsVisible="{Binding ModulesText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                <TextBlock Classes="label" Text="Bundle modules" />
+                                <TextBlock Classes="fact" Text="{Binding ModulesText}" FontWeight="Normal" />
+                            </StackPanel>
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding Warnings}" Margin="0,16,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource WarningTintBrush}" CornerRadius="6" Padding="10,7" Margin="0,0,0,6">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <c:Icon Kind="warning" Width="16" Height="16" VerticalAlignment="Center"
+                                                    TextElement.Foreground="{StaticResource WarningBrush}" />
+                                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Expander Header="{Binding PermissionsHeader}" Margin="0,8,0,0" HorizontalAlignment="Stretch">
+                            <ItemsControl ItemsSource="{Binding Permissions}" Margin="0,10,0,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Classes="pill" Classes.danger="{Binding IsDangerous}" ToolTip.Tip="{Binding Name}">
+                                            <TextBlock Text="{Binding ShortName}" FontSize="12" />
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Expander>
+                    </StackPanel>
+                </Border>
+
+                <!-- Options: greyed out until a file is loaded -->
+                <Grid Margin="0,18,0,0" ColumnDefinitions="*,16,*" IsEnabled="{Binding HasPackage}" Classes.dim="{Binding !HasPackage}">
+
+                    <!-- Device + install options -->
+                    <Border Grid.Column="0" Classes="card">
+                        <StackPanel>
+                            <TextBlock Classes="section" Text="Target device" />
+                            <Grid ColumnDefinitions="*,Auto">
+                                <ComboBox x:Name="DeviceCombo" ItemsSource="{Binding Devices.Choices}"
+                                          SelectedItem="{Binding Devices.Selected}" HorizontalAlignment="Stretch" MinHeight="32">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" Classes.dim="{Binding !IsReady}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <Button x:Name="RefreshButton" Grid.Column="1" Classes="icon" Click="RefreshDevices_Click"
+                                        ToolTip.Tip="Refresh the device list" AutomationProperties.Name="Refresh devices">
+                                    <c:Icon Kind="refresh" Width="16" Height="16" />
+                                </Button>
+                            </Grid>
+
+                            <Grid Margin="0,8,0,0" ColumnDefinitions="*,Auto" IsVisible="{Binding Devices.ShowIpEntry}">
+                                <TextBox x:Name="IpBox" Text="{Binding Devices.IpAddress}" Watermark="192.168.1.50:5555"
+                                         ToolTip.Tip="Device IP address, e.g. 192.168.1.50 or 192.168.1.50:5555 (wireless debugging must be on)"
+                                         KeyDown="IpBox_KeyDown" MinHeight="32" />
+                                <Button Grid.Column="1" Content="Connect" Click="Connect_Click" Margin="8,0,0,0" Padding="16,5"
+                                        VerticalAlignment="Stretch" IsEnabled="{Binding !Devices.IsConnecting}" />
+                            </Grid>
+
+                            <TextBlock Margin="0,8,0,0" FontSize="12" TextWrapping="Wrap" Classes="muted"
+                                       Classes.err="{Binding Devices.StatusIsError}" Text="{Binding Devices.StatusText}" />
+
+                            <Rectangle Height="1" Fill="{StaticResource DividerBrush}" Margin="0,16,0,16" />
+
+                            <TextBlock Classes="section" Text="Install options" />
+
+                            <CheckBox x:Name="AllowDowngradeCheck" IsChecked="{Binding AllowDowngrade}" Content="Allow version downgrade"
+                                      ToolTip.Tip="Install even if the device already has a higher version code. Android only allows this for debuggable apps." />
+                            <CheckBox x:Name="UninstallConflictCheck" IsChecked="{Binding UninstallConflicting}"
+                                      AutomationProperties.Name="Uninstall conflicting versions if needed"
+                                      ToolTip.Tip="If the install is refused because the installed copy is signed with a different key (or is newer), uninstall it and try again. This deletes the installed app's data.">
+                                <TextBlock>
+                                    <Run Text="Uninstall conflicting versions if needed" /><Run Text="  (deletes the app's data)" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox x:Name="ClearDataCheck" IsChecked="{Binding ClearData}" Content="Force clear app data after installing"
+                                      ToolTip.Tip="Runs 'pm clear' after installing so the app starts from a fresh state." />
+                            <CheckBox x:Name="GrantPermsCheck" IsChecked="{Binding GrantPermissions}" Content="Grant all permissions"
+                                      ToolTip.Tip="Grants every permission the app requests, so no runtime permission prompts appear." />
+                            <CheckBox x:Name="LaunchCheck" IsChecked="{Binding LaunchAfterInstall}" Content="Launch the app after installing" Margin="0"
+                                      ToolTip.Tip="Untick to install without opening the app." />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Signing -->
+                    <Border Grid.Column="2" Classes="card">
+                        <StackPanel>
+                            <TextBlock Classes="section" Text="Signing" />
+                            <CheckBox x:Name="SignCheckBox" AutomationProperties.Name="Sign APK"
+                                      IsChecked="{Binding Signing.Enabled}" Margin="0,0,0,6">
+                                <StackPanel>
+                                    <TextBlock Text="Sign APK" />
+                                    <TextBlock Classes="muted" FontSize="12" Text="Unticked: the APK is signed with the Android debug key" />
+                                </StackPanel>
+                            </CheckBox>
+                            <TextBlock Classes="err" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       IsVisible="{Binding Signing.ShowDebugKeyWarning}"
+                                       Text="No Android debug keystore was found, so an unsigned build can't be installed. Tick Sign APK and choose a keystore." />
+
+                            <StackPanel IsEnabled="{Binding Signing.Enabled}" Classes.dim="{Binding !Signing.Enabled}">
+                                <TextBlock Classes="label" Text="Keystore" Margin="0,8,0,4" />
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <ComboBox x:Name="KeystoreCombo" ItemsSource="{Binding Signing.Keystores}"
+                                              SelectedItem="{Binding Signing.SelectedKeystore}" HorizontalAlignment="Stretch" MinHeight="32"
+                                              DropDownOpened="KeystoreCombo_DropDownOpened"
+                                              ToolTip.Tip="The keystores in the Keystores folder">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Name}" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    <Button Grid.Column="1" Content="Browse…" Click="BrowseKeystore_Click" Margin="8,0,0,0" Padding="14,5"
+                                            VerticalAlignment="Stretch"
+                                            ToolTip.Tip="Pick a keystore from anywhere – it is copied into the Keystores folder" />
+                                </Grid>
+                                <TextBlock Classes="muted" FontSize="12" Margin="0,4,0,0" Text="{Binding Signing.Notice}"
+                                           IsVisible="{Binding Signing.Notice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+                                <TextBlock Classes="label" Text="Keystore password" Margin="0,14,0,4" />
+                                <c:SecretBox Secret="{Binding Signing.StorePassword}" />
+
+                                <TextBlock Classes="label" Text="Alias" Margin="0,14,0,4" />
+                                <ComboBox x:Name="AliasCombo" IsEditable="True" ItemsSource="{Binding Signing.Aliases}"
+                                          Text="{Binding Signing.Alias}" HorizontalAlignment="Stretch" MinHeight="32" />
+                                <TextBlock Margin="0,4,0,0" FontSize="12" TextWrapping="Wrap" Classes="muted"
+                                           Classes.err="{Binding Signing.AliasStatusIsError}" Classes.ok="{Binding Signing.AliasStatusIsOk}"
+                                           Text="{Binding Signing.AliasStatus}"
+                                           IsVisible="{Binding Signing.AliasStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+                                <TextBlock Classes="label" Margin="0,14,0,4">
+                                    <Run Text="Alias password" /><Run Text="  (blank = same as keystore password)" FontSize="11" />
+                                </TextBlock>
+                                <c:SecretBox Secret="{Binding Signing.AliasPassword}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Actions: pinned so they never scroll out of view -->
+        <Grid Grid.Row="1" Margin="28,2,28,12" ColumnDefinitions="*,Auto">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button x:Name="InstallButton" Classes="accent" Click="Install_Click" IsEnabled="{Binding CanInstall}"
+                        Padding="22,9" AutomationProperties.AutomationId="InstallButton" AutomationProperties.Name="{Binding InstallButtonText}">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <c:Icon Kind="play" Width="14" Height="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding InstallButtonText}" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="SaveButton" Padding="22,9" Click="Save_Click" IsEnabled="{Binding CanSave}"
+                        AutomationProperties.AutomationId="SaveButton" AutomationProperties.Name="{Binding SaveButtonText}"
+                        ToolTip.Tip="Build an installable APK from this file (signed as set above) and save it where you choose">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <c:Icon Kind="save" Width="14" Height="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding SaveButtonText}" />
+                    </StackPanel>
+                </Button>
+                <!-- Only exists once FTP details have been entered in Settings -->
+                <Button x:Name="SaveFtpButton" Padding="22,9" Click="SaveFtp_Click" IsEnabled="{Binding CanSave}"
+                        IsVisible="{Binding FtpConfigured}" AutomationProperties.AutomationId="SaveFtpButton" AutomationProperties.Name="{Binding SaveFtpButtonText}"
+                        ToolTip.Tip="Build the APK (signed as set above) and upload it to the FTP folder set in Settings">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <c:Icon Kind="upload" Width="14" Height="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding SaveFtpButtonText}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+            <Button x:Name="SettingsButton" Grid.Column="1" Classes="icon" Margin="0" MinWidth="44" Click="Settings_Click"
+                    AutomationProperties.Name="Settings" AutomationProperties.AutomationId="SettingsButton" ToolTip.Tip="Settings">
+                <c:Icon Kind="cog" Width="20" Height="20" />
+            </Button>
+        </Grid>
+
+        <!-- Status, results and errors -->
+        <Border Grid.Row="2" Classes="card" Margin="28,0,28,10" Padding="16,12">
+            <StackPanel>
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <c:Icon Width="18" Height="18" Margin="0,0,10,0" VerticalAlignment="Center"
+                            Kind="{Binding Kind, Converter={x:Static local:Conv.StatusIcon}}"
+                            TextElement.Foreground="{Binding Kind, Converter={x:Static local:Conv.StatusBrush}}" />
+                    <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontSize="15" FontWeight="SemiBold"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusText}" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                        <Button Content="Show in folder" Click="OpenFolder_Click" Padding="14,4" IsVisible="{Binding HasResult}" />
+                        <Button Content="Cancel" Click="Cancel_Click" Padding="16,4" IsVisible="{Binding IsBusy}" />
+                        <ToggleButton x:Name="LogToggle" Content="Output log" Padding="14,4" />
+                    </StackPanel>
+                </Grid>
+
+                <ProgressBar IsIndeterminate="True" Height="3" Margin="0,10,0,0" IsVisible="{Binding IsBusy}" />
+
+                <ItemsControl ItemsSource="{Binding DeviceResults}" Margin="0,10,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid ColumnDefinitions="26,Auto,*" Margin="0,0,0,4">
+                                <c:Icon Width="14" Height="14" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                        Kind="{Binding State, Converter={x:Static local:Conv.RowIcon}}"
+                                        TextElement.Foreground="{Binding State, Converter={x:Static local:Conv.RowBrush}}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" Margin="0,0,12,0" />
+                                <TextBlock Grid.Column="2" Text="{Binding Message}" TextWrapping="Wrap" Opacity="0.85" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border IsVisible="{Binding HasError}" Background="{StaticResource ErrorTintBrush}"
+                        BorderBrush="{StaticResource ErrorBrush}" BorderThickness="3,0,0,0" CornerRadius="6"
+                        Padding="14,12" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Error.Title}" FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Error.Hint}" TextWrapping="Wrap" Margin="0,4,0,0" Opacity="0.9"
+                                   IsVisible="{Binding Error.Hint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        <TextBox Text="{Binding Error.Technical, Mode=OneWay}" IsReadOnly="True" FontFamily="{StaticResource MonoFont}"
+                                 FontSize="12" MaxHeight="120" TextWrapping="Wrap" Margin="0,10,0,0"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 IsVisible="{Binding Error.Technical, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+                            <Button Content="Copy details" Click="CopyError_Click" Padding="14,4" />
+                            <Button Content="Dismiss" Click="DismissError_Click" Padding="14,4" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Grid Margin="0,10,0,0" IsVisible="{Binding #LogToggle.IsChecked}">
+                    <TextBox x:Name="LogBox" Text="{Binding LogText, Mode=OneWay}" IsReadOnly="True"
+                             FontFamily="{StaticResource MonoFont}" FontSize="12" Height="170" TextWrapping="NoWrap"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+                    <Button Content="Clear" Click="ClearLog_Click" HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Margin="0,6,22,0" Padding="10,2" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Row="3" Margin="30,0,28,10" FontSize="11.5" TextWrapping="Wrap" Classes="muted"
+                   Classes.err="{Binding ToolsHaveProblem}" Text="{Binding ToolsSummary}" />
+
+        <!-- Shown while a file is dragged over the window -->
+        <Border x:Name="DropOverlay" Grid.RowSpan="4" IsVisible="False" IsHitTestVisible="False" Margin="10"
+                Background="{StaticResource AccentTintBrush}" BorderBrush="{StaticResource AccentBrush}"
+                BorderThickness="3" CornerRadius="14">
+            <TextBlock Text="Drop to open" FontSize="30" FontWeight="SemiBold" HorizontalAlignment="Center"
+                       VerticalAlignment="Center" Foreground="{StaticResource AccentBrush}" />
+        </Border>
+    </Grid>
+</Window>

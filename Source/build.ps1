@@ -3,7 +3,7 @@
   and copies it into the tool folder, next to "Dependencies" and "Keystores".
 
   Usage:   powershell -ExecutionPolicy Bypass -File build.ps1            build + copy the exe
-           powershell -ExecutionPolicy Bypass -File build.ps1 -Package   ...and also make "APK Generator.zip"
+           powershell -ExecutionPolicy Bypass -File build.ps1 -Package   ...and also make "APK Generator-win.zip"
                                                                           (the minimum files to share the program)
   Needs:   the .NET 10 SDK (only on the machine that builds - not to run the exe).
 #>
@@ -52,7 +52,7 @@ if ($Package) {
     Copy-Item $jar.FullName (Join-Path $stage "Dependencies")
     Copy-Item (Join-Path $src "share-readme.txt") (Join-Path $stage "README.txt")
 
-    $zip = Join-Path $toolFolder "$folderName.zip"
+    $zip = Join-Path $toolFolder "$folderName-win.zip"   # "-win" so it is not mistaken for the Mac zips
     if (Test-Path $zip) { Remove-Item $zip -Force }
 
     # Written by hand so entry names use "/" (Windows PowerShell's CreateFromDirectory uses "\", which other unzip tools mis-read).

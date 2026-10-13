@@ -1,0 +1,51 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:ApkGenerator.Mac.Controls"
+        x:Class="ApkGenerator.Mac.SettingsWindow"
+        Title="Settings" Width="520" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+
+    <StackPanel Margin="26,22,26,22">
+        <TextBlock Text="FTP upload" FontSize="17" FontWeight="SemiBold" />
+        <TextBlock Classes="muted" Margin="0,4,0,18"
+                   Text="Fill in the server to show a “Save APK to FTP” button next to Save APK. Leave the server blank to hide it." />
+
+        <Grid ColumnDefinitions="*,12,90">
+            <StackPanel>
+                <TextBlock Classes="label" Text="Server" />
+                <TextBox x:Name="HostBox" Text="{Binding Host}" Watermark="ftp.example.com" MinHeight="32" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Classes="label" Text="Port" />
+                <TextBox x:Name="PortBox" Text="{Binding Port}" MinHeight="32" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Classes="label" Text="Username  (leave blank for anonymous)" Margin="0,14,0,4" />
+        <TextBox x:Name="UserBox" Text="{Binding User}" MinHeight="32" />
+
+        <TextBlock Classes="label" Text="Password" Margin="0,14,0,4" />
+        <c:SecretBox Secret="{Binding Password}" />
+
+        <TextBlock Classes="label" Text="FTP path  (folder on the server to upload into)" Margin="0,14,0,4" />
+        <TextBox x:Name="FolderBox" Text="{Binding RemoteFolder}" Watermark="/builds/android" MinHeight="32"
+                 ToolTip.Tip="The folder is created if it doesn't exist." />
+
+        <CheckBox x:Name="TlsCheck" IsChecked="{Binding UseTls}" Content="Use TLS (FTPS)" Margin="0,14,0,0"
+                  ToolTip.Tip="Encrypts the connection. Only works if the server supports it." />
+
+        <StackPanel Orientation="Horizontal" Margin="0,16,0,0" Spacing="14">
+            <Button x:Name="TestButton" Content="Test connection" Click="Test_Click" Padding="16,6" IsEnabled="{Binding CanTest}" />
+            <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="320" FontSize="12.5" Classes="muted"
+                       Classes.err="{Binding TestIsError}" Classes.ok="{Binding TestIsOk}" Text="{Binding TestMessage}" />
+        </StackPanel>
+
+        <TextBlock Classes="err" TextWrapping="Wrap" Margin="0,12,0,0" Text="{Binding ValidationError}"
+                   IsVisible="{Binding ValidationError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0" Spacing="10">
+            <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" Padding="22,7" Click="Cancel_Click" />
+            <Button x:Name="SaveButton" Content="Save" IsDefault="True" Classes="accent" Padding="28,7" Click="Save_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

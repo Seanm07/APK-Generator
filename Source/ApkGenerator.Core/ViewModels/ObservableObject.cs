@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 
-namespace ApkGenerator.App.ViewModels;
+namespace ApkGenerator.Core.ViewModels;
 
 public abstract class ObservableObject : INotifyPropertyChanged
 {

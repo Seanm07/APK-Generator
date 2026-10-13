@@ -9,3 +9,6 @@ Source/publish/
 Keystores/
 Generated APKs/
 *.settings.json
+
+# macOS build output
+Source/mac/out/

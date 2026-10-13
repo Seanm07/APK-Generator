@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using ApkGenerator.Core;
 
-namespace ApkGenerator.App.ViewModels;
+namespace ApkGenerator.Core.ViewModels;
 
 public enum DeviceChoiceKind { AllDevices, Device, EnterIp }
 

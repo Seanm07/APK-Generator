@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Text;
 using ApkGenerator.Core;
 
-namespace ApkGenerator.App.ViewModels;
+namespace ApkGenerator.Core.ViewModels;
 
 public enum StatusKind { Idle, Working, Success, Error }
 public enum RowState { Waiting, Working, Success, Failed }
@@ -599,17 +599,13 @@ public sealed class MainViewModel : ObservableObject
 
     public void OpenOutputFolder()
     {
-        try
+        if (ResultPath != null && File.Exists(ResultPath))
         {
-            if (ResultPath != null && File.Exists(ResultPath))
-                Process.Start("explorer.exe", $"/select,\"{ResultPath}\"");
-            else
-            {
-                Directory.CreateDirectory(Paths.OutputDir);
-                Process.Start("explorer.exe", $"\"{Paths.OutputDir}\"");
-            }
+            PlatformShell.Reveal(ResultPath);
+            return;
         }
-        catch { /* nothing sensible to do if Explorer can't start */ }
+        Directory.CreateDirectory(Paths.OutputDir);
+        PlatformShell.Reveal(Paths.OutputDir);
     }
 
     public static string FormatMb(long bytes) => (bytes / 1_000_000.0).ToString("0.0", CultureInfo.InvariantCulture) + " MB";

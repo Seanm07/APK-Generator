@@ -1,0 +1,87 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:ApkGenerator.Mac.Controls"
+             x:Class="ApkGenerator.Mac.App"
+             RequestedThemeVariant="Default">
+
+<Application.Resources>
+        <!-- Semi-transparent neutrals read correctly on both the light and dark themes. -->
+        <SolidColorBrush x:Key="CardBrush" Color="#14808080" />
+        <SolidColorBrush x:Key="CardBorderBrush" Color="#33808080" />
+        <SolidColorBrush x:Key="DividerBrush" Color="#26808080" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#8C8C8C" />
+        <SolidColorBrush x:Key="PillBrush" Color="#1F808080" />
+
+        <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource SystemAccentColor}" />
+        <SolidColorBrush x:Key="AccentTintBrush" Color="{DynamicResource SystemAccentColor}" Opacity="0.15" />
+        <SolidColorBrush x:Key="SuccessBrush" Color="#2EA043" />
+        <SolidColorBrush x:Key="ErrorBrush" Color="#E5484D" />
+        <SolidColorBrush x:Key="WarningBrush" Color="#C98A00" />
+        <SolidColorBrush x:Key="ErrorTintBrush" Color="#1FE5484D" />
+        <SolidColorBrush x:Key="WarningTintBrush" Color="#26C98A00" />
+
+        <FontFamily x:Key="MonoFont">Menlo,Consolas,Cascadia Mono,monospace</FontFamily>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+
+        <!-- cards and text styles -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{StaticResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="18" />
+        </Style>
+
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Opacity" Value="0.68" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Opacity" Value="0.68" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+        <Style Selector="TextBlock.fact">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="TextBlock.warn"><Setter Property="Foreground" Value="{StaticResource WarningBrush}" /></Style>
+        <Style Selector="TextBlock.err"><Setter Property="Foreground" Value="{StaticResource ErrorBrush}" /><Setter Property="Opacity" Value="1" /></Style>
+        <Style Selector="TextBlock.ok"><Setter Property="Foreground" Value="{StaticResource SuccessBrush}" /><Setter Property="Opacity" Value="1" /></Style>
+        <Style Selector="TextBlock.dim"><Setter Property="Opacity" Value="0.55" /></Style>
+
+        <!-- greyed-out regions -->
+        <Style Selector="Grid.dim"><Setter Property="Opacity" Value="0.42" /></Style>
+        <Style Selector="StackPanel.dim"><Setter Property="Opacity" Value="0.45" /></Style>
+
+        <!-- square icon buttons, as tall as the box next to them -->
+        <Style Selector="Button.icon">
+            <Setter Property="MinWidth" Value="38" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="8,0,0,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+        </Style>
+
+        <Style Selector="Border.pill">
+            <Setter Property="Background" Value="{StaticResource PillBrush}" />
+            <Setter Property="CornerRadius" Value="11" />
+            <Setter Property="Padding" Value="10,3" />
+            <Setter Property="Margin" Value="0,0,6,6" />
+        </Style>
+        <Style Selector="Border.pill.danger"><Setter Property="Background" Value="{StaticResource WarningTintBrush}" /></Style>
+
+        <Style Selector="CheckBox"><Setter Property="Margin" Value="0,0,0,10" /></Style>
+    </Application.Styles>
+</Application>

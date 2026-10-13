@@ -2,7 +2,7 @@ using System.Collections.ObjectModel;
 using System.Security.Cryptography;
 using ApkGenerator.Core;
 
-namespace ApkGenerator.App.ViewModels;
+namespace ApkGenerator.Core.ViewModels;
 
 public sealed record KeystoreFile(string Name, string Path)
 {

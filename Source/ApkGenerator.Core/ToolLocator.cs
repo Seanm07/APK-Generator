@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace ApkGenerator.Core;
@@ -30,6 +31,8 @@ public sealed class ToolOverrides
 
 public static class ToolLocator
 {
+    private static string Exe(string name) => OperatingSystem.IsWindows() ? name + ".exe" : name;
+
     public static ToolSet Locate(AppPaths paths, ToolOverrides? overrides = null)
     {
         var set = new ToolSet();
@@ -49,7 +52,7 @@ public static class ToolLocator
         {
             var jar = Path.Combine(bt, "lib", "apksigner.jar");
             if (File.Exists(jar)) set.ApkSignerJar = jar;
-            var za = Path.Combine(bt, "zipalign.exe");
+            var za = Path.Combine(bt, Exe("zipalign"));
             if (File.Exists(za)) set.ZipAlignPath = za;
             set.BuildToolsVersion = Path.GetFileName(bt);
         }
@@ -81,7 +84,7 @@ public static class ToolLocator
 
     // ---------------------------------------------------------------- Java
 
-    private static string? FindJava() => FindInJdkDirs("java.exe");
+    private static string? FindJava() => FindInJdkDirs(Exe("java"));
 
     private static IEnumerable<string> FindKeytools(string? javaPath)
     {
@@ -91,13 +94,13 @@ public static class ToolLocator
             if (p != null && File.Exists(p) && !found.Contains(p, StringComparer.OrdinalIgnoreCase)) found.Add(p);
         }
 
-        if (javaPath != null) Add(Path.Combine(Path.GetDirectoryName(javaPath)!, "keytool.exe"));
+        if (javaPath != null) Add(Path.Combine(Path.GetDirectoryName(javaPath)!, Exe("keytool")));
 
         var javaHome = Environment.GetEnvironmentVariable("JAVA_HOME");
-        if (!string.IsNullOrWhiteSpace(javaHome)) Add(Path.Combine(javaHome, "bin", "keytool.exe"));
+        if (!string.IsNullOrWhiteSpace(javaHome)) Add(Path.Combine(javaHome, "bin", Exe("keytool")));
 
-        foreach (var bin in CandidateJdkBinDirs()) Add(Path.Combine(bin, "keytool.exe"));
-        Add(FindOnPath("keytool.exe"));
+        foreach (var bin in CandidateJdkBinDirs()) Add(Path.Combine(bin, Exe("keytool")));
+        Add(FindOnPath(Exe("keytool")));
         return found;
     }
 
@@ -111,7 +114,8 @@ public static class ToolLocator
             if (File.Exists(p)) return p;
         }
 
-        var onPath = FindOnPath(exe);
+        // macOS ships a /usr/bin/java stub that pops up an "install Java" dialog when no JDK exists - never run that.
+        var onPath = FindOnPath(exe, skip: OperatingSystem.IsMacOS() ? "/usr/bin/java" : null);
         if (onPath != null) return onPath;
 
         foreach (var bin in CandidateJdkBinDirs())
@@ -124,21 +128,59 @@ public static class ToolLocator
 
     private static IEnumerable<string> CandidateJdkBinDirs()
     {
+        if (OperatingSystem.IsMacOS())
+        {
+            foreach (var d in MacJdkBinDirs()) yield return d;
+            yield break;
+        }
+        if (!OperatingSystem.IsWindows()) yield break;
+
         var pf = Environment.GetEnvironmentVariable("ProgramFiles") ?? @"C:\Program Files";
 
         yield return Path.Combine(pf, "Android", "Android Studio", "jbr", "bin");
 
         // Unity ships an OpenJDK inside every Android-enabled editor install.
-        foreach (var editors in new[] { Path.Combine(pf, "Unity", "Hub", "Editor") })
-            foreach (var ed in SafeDirs(editors).OrderByDescending(d => d, StringComparer.OrdinalIgnoreCase))
-                yield return Path.Combine(ed, "Editor", "Data", "PlaybackEngines", "AndroidPlayer", "OpenJDK", "bin");
+        foreach (var ed in SafeDirs(Path.Combine(pf, "Unity", "Hub", "Editor")).OrderByDescending(d => d, StringComparer.OrdinalIgnoreCase))
+            yield return Path.Combine(ed, "Editor", "Data", "PlaybackEngines", "AndroidPlayer", "OpenJDK", "bin");
 
         foreach (var vendor in new[] { "Java", "Eclipse Adoptium", "Microsoft", "Amazon Corretto", "Zulu" })
             foreach (var jdk in SafeDirs(Path.Combine(pf, vendor)).OrderByDescending(d => JdkMajor(Path.GetFileName(d))))
                 yield return Path.Combine(jdk, "bin");
     }
 
-    /// <summary>"jdk1.8.0_221" → 8, "jdk-25" → 25, "jdk-17.0.9.9-hotspot" → 17.</summary>
+    private static IEnumerable<string> MacJdkBinDirs()
+    {
+        var home = AppPaths.Home();
+
+        // The system's chosen JDK (does nothing and exits non-zero if none is installed).
+        var javaHome = RunQuick("/usr/libexec/java_home");
+        if (!string.IsNullOrWhiteSpace(javaHome)) yield return Path.Combine(javaHome.Trim(), "bin");
+
+        yield return "/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin";
+        yield return "/Applications/Android Studio Preview.app/Contents/jbr/Contents/Home/bin";
+
+        // Unity ships an OpenJDK with its Android support module.
+        foreach (var ed in SafeDirs("/Applications/Unity/Hub/Editor").OrderByDescending(d => d, StringComparer.OrdinalIgnoreCase))
+        {
+            yield return Path.Combine(ed, "PlaybackEngines", "AndroidPlayer", "OpenJDK", "bin");
+            yield return Path.Combine(ed, "Unity.app", "Contents", "PlaybackEngines", "AndroidPlayer", "OpenJDK", "bin");
+        }
+
+        foreach (var root in new[] { "/Library/Java/JavaVirtualMachines", Path.Combine(home, "Library", "Java", "JavaVirtualMachines") })
+            foreach (var jdk in SafeDirs(root).OrderByDescending(d => JdkMajor(Path.GetFileName(d))))
+                yield return Path.Combine(jdk, "Contents", "Home", "bin");
+
+        // Homebrew (Apple Silicon and Intel)
+        foreach (var brew in new[] { "/opt/homebrew/opt", "/usr/local/opt" })
+            foreach (var jdk in SafeDirs(brew).Where(d => Path.GetFileName(d).StartsWith("openjdk", StringComparison.OrdinalIgnoreCase))
+                         .OrderByDescending(d => JdkMajor(Path.GetFileName(d))))
+            {
+                yield return Path.Combine(jdk, "bin");
+                yield return Path.Combine(jdk, "libexec", "openjdk.jdk", "Contents", "Home", "bin");
+            }
+    }
+
+    /// <summary>"jdk1.8.0_221" → 8, "jdk-25" → 25, "temurin-17.jdk" → 17.</summary>
     private static int JdkMajor(string dirName)
     {
         var m = Regex.Match(dirName, @"(?:1\.)?(\d+)");
@@ -149,15 +191,18 @@ public static class ToolLocator
 
     private static string? FindAdb(AppPaths paths)
     {
-        var bundled = Path.Combine(paths.DependenciesDir, "platform-tools", "adb.exe");
-        if (File.Exists(bundled)) return bundled;
+        foreach (var deps in new[] { paths.DependenciesDir, paths.UserDependenciesDir })
+        {
+            var bundled = Path.Combine(deps, "platform-tools", Exe("adb"));
+            if (File.Exists(bundled)) return bundled;
+        }
 
-        var onPath = FindOnPath("adb.exe");
+        var onPath = FindOnPath(Exe("adb"));
         if (onPath != null) return onPath;
 
         foreach (var sdk in SdkRoots())
         {
-            var p = Path.Combine(sdk, "platform-tools", "adb.exe");
+            var p = Path.Combine(sdk, "platform-tools", Exe("adb"));
             if (File.Exists(p)) return p;
         }
         return null;
@@ -167,7 +212,8 @@ public static class ToolLocator
 
     private static string? FindBundletool(AppPaths paths)
     {
-        var dirs = new[] { paths.BundletoolDir, paths.DependenciesDir };
+        var dirs = new[] { paths.DependenciesDir, paths.UserDependenciesDir, Path.Combine(paths.UserDependenciesDir, "Bundletool") }
+            .Distinct(StringComparer.OrdinalIgnoreCase);
         var jars = dirs.SelectMany(d => SafeFiles(d, "bundletool*.jar")).ToList();
         if (jars.Count == 0) return null;
         return jars.OrderByDescending(j => VersionKey(Path.GetFileName(j))).First();
@@ -200,30 +246,82 @@ public static class ToolLocator
             var p = Environment.GetEnvironmentVariable(v);
             if (!string.IsNullOrWhiteSpace(p) && Directory.Exists(p) && seen.Add(p)) yield return p;
         }
-        var local = Environment.GetEnvironmentVariable("LOCALAPPDATA");
-        if (local != null)
+
+        var defaults = new List<string>();
+        if (OperatingSystem.IsWindows())
         {
-            var p = Path.Combine(local, "Android", "Sdk");
-            if (Directory.Exists(p) && seen.Add(p)) yield return p;
+            var local = Environment.GetEnvironmentVariable("LOCALAPPDATA");
+            if (local != null) defaults.Add(Path.Combine(local, "Android", "Sdk"));
         }
+        else if (OperatingSystem.IsMacOS())
+        {
+            defaults.Add(Path.Combine(AppPaths.Home(), "Library", "Android", "sdk"));
+            defaults.Add(Path.Combine(AppPaths.Home(), "Library", "Android", "Sdk"));
+            defaults.Add("/opt/homebrew/share/android-commandlinetools");
+            defaults.Add("/usr/local/share/android-commandlinetools");
+        }
+        else
+        {
+            defaults.Add(Path.Combine(AppPaths.Home(), "Android", "Sdk"));
+        }
+        foreach (var p in defaults)
+            if (Directory.Exists(p) && seen.Add(p)) yield return p;
     }
 
     // ---------------------------------------------------------------- helpers
 
-    private static string? FindOnPath(string exe)
+    private static string[]? _macPath;
+
+    /// <summary>
+    /// PATH entries to search. Apps launched from Finder get a bare PATH (no Homebrew), so on macOS this adds the
+    /// login shell's PATH plus the usual Homebrew folders.
+    /// </summary>
+    private static IEnumerable<string> PathDirs()
     {
-        var path = Environment.GetEnvironmentVariable("PATH");
-        if (path == null) return null;
-        foreach (var dir in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        var dirs = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (OperatingSystem.IsMacOS())
+        {
+            _macPath ??= (RunQuick("/bin/zsh", "-lc", "printf %s \"$PATH\"") ?? "")
+                .Split(':', StringSplitOptions.RemoveEmptyEntries)
+                .Concat(new[] { "/opt/homebrew/bin", "/usr/local/bin" }).ToArray();
+            dirs.AddRange(_macPath);
+        }
+        return dirs;
+    }
+
+    private static string? FindOnPath(string exe, string? skip = null)
+    {
+        foreach (var dir in PathDirs())
         {
             try
             {
                 var p = Path.Combine(dir.Trim().Trim('"'), exe);
-                if (File.Exists(p)) return p;
+                if (File.Exists(p) && !string.Equals(p, skip, StringComparison.Ordinal)) return p;
             }
             catch { }
         }
         return null;
+    }
+
+    /// <summary>Runs a tool and returns stdout, or null if it fails or takes more than a few seconds.</summary>
+    private static string? RunQuick(string file, params string[] args)
+    {
+        try
+        {
+            if (!File.Exists(file)) return null;
+            var psi = new ProcessStartInfo(file) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+            foreach (var a in args) psi.ArgumentList.Add(a);
+            using var p = Process.Start(psi);
+            if (p is null) return null;
+            var output = p.StandardOutput.ReadToEndAsync();
+            p.StandardError.ReadToEndAsync();
+            if (!p.WaitForExit(4000)) { try { p.Kill(true); } catch { } return null; }
+            return p.ExitCode == 0 ? output.GetAwaiter().GetResult() : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static IEnumerable<string> SafeDirs(string dir)
