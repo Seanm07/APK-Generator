@@ -47,6 +47,8 @@ public partial class MainWindow : Window
             }
             if (_pendingFile != null) { var f = _pendingFile; _pendingFile = null; await _vm.LoadFileAsync(f); }
             await vm.InitializeAsync();
+            if (vm.MissingDependencies.Count > 0)
+                await new DependencyWindow(vm).ShowDialog(this);
         };
 
         Closing += (_, _) =>

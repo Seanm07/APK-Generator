@@ -28,7 +28,12 @@ public partial class MainWindow : Window
         Height = Math.Min(Height, work.Height - 10);
         Width = Math.Min(Width, work.Width - 10);
 
-        Loaded += async (_, _) => await vm.InitializeAsync();
+        Loaded += async (_, _) =>
+        {
+            await vm.InitializeAsync();
+            if (vm.MissingDependencies.Count > 0)
+                new DependencyWindow(vm) { Owner = this }.ShowDialog();
+        };
     }
 
     /// <summary>A path passed on the command line (drag onto the exe, or "Open with").</summary>

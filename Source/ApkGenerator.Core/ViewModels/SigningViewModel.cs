@@ -63,7 +63,7 @@ public sealed class SigningViewModel : ObservableObject
     /// Without "Sign APK" bundletool uses the Android debug key; warn if that file doesn't exist,
     /// because the resulting APK would be unsigned and un-installable.
     /// </summary>
-    public bool ShowDebugKeyWarning => !Enabled && !File.Exists(BuildService.DebugKeystorePath);
+    public bool ShowDebugKeyWarning => !Enabled && !File.Exists(BuildService.DebugKeystorePath) && _tools().KeytoolPath is null;
 
     protected override void OnChanged(string? name)
     {

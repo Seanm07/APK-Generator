@@ -30,6 +30,20 @@ public static class PlatformShell
         }
     }
 
+    /// <summary>Opens a web page in the default browser.</summary>
+    public static void OpenUrl(string url)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows()) Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            else Start(OperatingSystem.IsMacOS() ? "open" : "xdg-open", new[] { url });
+        }
+        catch
+        {
+            // No browser to open - the link is still shown in the dialog.
+        }
+    }
+
     private static void Start(string file, IEnumerable<string> args)
     {
         var psi = new ProcessStartInfo(file) { UseShellExecute = false };

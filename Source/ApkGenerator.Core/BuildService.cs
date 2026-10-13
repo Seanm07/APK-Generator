@@ -18,8 +18,10 @@ public sealed class BuildOutcome
 
 public static class BuildService
 {
+    /// <summary>~/.android/debug.keystore (APKGENERATOR_DEBUG_KEYSTORE overrides it - used for testing).</summary>
     public static string DebugKeystorePath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".android", "debug.keystore");
+        Environment.GetEnvironmentVariable("APKGENERATOR_DEBUG_KEYSTORE") is { Length: > 0 } o ? o
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".android", "debug.keystore");
 
     /// <summary>
     /// The default name for a built APK: "&lt;name&gt;_universal.apk" for an AAB ("_universal_signed.apk" when a keystore is used),
@@ -41,10 +43,8 @@ public static class BuildService
         if (tools.JavaPath is null) return BuildOutcome.Fail(ToolErrors.JavaMissing);
         if (tools.BundletoolPath is null) return BuildOutcome.Fail(ToolErrors.BundletoolMissing);
 
-        if (signing is null && !File.Exists(DebugKeystorePath))
-            return BuildOutcome.Fail(ErrorInterpreter.Custom(
-                "There's no key to sign the APK with",
-                "Tick \"Sign APK\" and choose a keystore. (Without one, bundletool uses the Android debug keystore, which doesn't exist at " + DebugKeystorePath + ".)"));
+        if (signing is null && await DebugKeystore.EnsureAsync(tools, log, ct) is { } keyError)
+            return BuildOutcome.Fail(keyError);
 
         var temp = AppPaths.NewTempDir();
         try

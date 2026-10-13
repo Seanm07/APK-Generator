@@ -477,20 +477,35 @@
             </StackPanel>
         </Border>
 
-        <TextBlock Grid.Row="3" Margin="30,0,28,10" FontSize="11.5" TextWrapping="Wrap" Text="{Binding ToolsSummary}">
-            <TextBlock.Style>
-                <Style TargetType="TextBlock">
-                    <Setter Property="Opacity" Value="0.6" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding ToolsHaveProblem}" Value="True">
-                            <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
-                            <Setter Property="Opacity" Value="1" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </TextBlock.Style>
-        </TextBlock>
-
+        <!-- Footer: one entry per tool; only the missing ones are red -->
+        <ItemsControl Grid.Row="3" Margin="30,0,28,10" ItemsSource="{Binding ToolItems}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontSize="11.5" Text="{Binding Text}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Opacity" Value="0.6" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Missing}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
+                                            <Setter Property="Opacity" Value="1" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock FontSize="11.5" Opacity="0.6" Text="   ·   "
+                                   Visibility="{Binding ShowSeparator, Converter={StaticResource BoolVis}}" />
+                    </StackPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
         <!-- Shown while a file is dragged over the window -->
         <Border x:Name="DropOverlay" Grid.RowSpan="4" Visibility="Collapsed" IsHitTestVisible="False" Margin="10"
                 Background="{StaticResource AccentTintBrush}" BorderBrush="{StaticResource AccentBrush}"

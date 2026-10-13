@@ -42,8 +42,8 @@ public sealed class MainViewModel : ObservableObject
     private OperationError? _error;
     private string _logText = "";
     private string? _resultPath;
-    private string _toolsSummary = "";
-    private bool _toolsHaveProblem;
+    private IReadOnlyList<ToolStatusItem> _toolItems = Array.Empty<ToolStatusItem>();
+
 
     public MainViewModel(AppPaths paths, SettingsStore settings)
     {
@@ -273,8 +273,11 @@ public sealed class MainViewModel : ObservableObject
     public string? ResultPath { get => _resultPath; private set { if (Set(ref _resultPath, value)) Raise(nameof(HasResult)); } }
     public bool HasResult => ResultPath != null;
 
-    public string ToolsSummary { get => _toolsSummary; private set => Set(ref _toolsSummary, value); }
-    public bool ToolsHaveProblem { get => _toolsHaveProblem; private set => Set(ref _toolsHaveProblem, value); }
+    /// <summary>The footer: one entry per tool, and only the missing ones are flagged.</summary>
+    public IReadOnlyList<ToolStatusItem> ToolItems { get => _toolItems; private set => Set(ref _toolItems, value); }
+
+    /// <summary>The tools that weren't found (drives the warning shown at launch).</summary>
+    public IReadOnlyList<DependencyStatus> MissingDependencies { get; private set; } = Array.Empty<DependencyStatus>();
 
     public bool CanInstall => HasPackage && !IsBusy;
     /// <summary>An AAB can always be saved as an APK; an existing APK can only be saved after re-signing it.</summary>
@@ -575,28 +578,23 @@ public sealed class MainViewModel : ObservableObject
         await Devices.RefreshAsync();
     }
 
-    private void UpdateToolsSummary()
+    /// <summary>Searches for the tools again (used by the "Retry" button after the user installs something).</summary>
+    public async Task RecheckToolsAsync()
     {
-        var parts = new List<string>();
-        var problem = false;
-
-        void Add(string name, string? version, bool found)
-        {
-            if (found) parts.Add(version != null ? $"{name} {version}" : name);
-            else { parts.Add($"{name} not found"); problem = true; }
-        }
-
-        Add("Java", Tools.JavaVersion, Tools.JavaPath != null);
-        Add("bundletool", Tools.BundletoolVersion, Tools.BundletoolPath != null);
-        Add("adb", Tools.AdbVersion, Tools.AdbPath != null);
-        // apksigner is only needed to re-sign APKs, so it's not a hard problem
-        if (Tools.ApkSignerJar != null) parts.Add($"build-tools {Tools.BuildToolsVersion}");
-        else parts.Add("build-tools not found (needed only to sign APKs)");
-
-        ToolsSummary = string.Join("  ·  ", parts);
-        ToolsHaveProblem = problem;
+        var overrides = Settings.Data.ToolOverrides;
+        var found = await Task.Run(() => ToolLocator.Locate(Paths, overrides));
+        await ToolLocator.ProbeVersionsAsync(found);
+        Tools = found;
+        UpdateToolsSummary();
+        await Devices.RefreshAsync();
     }
 
+    private void UpdateToolsSummary()
+    {
+        var all = DependencyChecker.Check(Tools, Paths);
+        MissingDependencies = all.Where(d => !d.Found).ToList();
+        ToolItems = all.Select((d, i) => new ToolStatusItem(d.Found ? d.FoundText : d.MissingText, !d.Found, i < all.Count - 1)).ToList();
+    }
     public void OpenOutputFolder()
     {
         if (ResultPath != null && File.Exists(ResultPath))

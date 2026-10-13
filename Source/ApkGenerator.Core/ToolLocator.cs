@@ -35,6 +35,7 @@ public static class ToolLocator
 
     public static ToolSet Locate(AppPaths paths, ToolOverrides? overrides = null)
     {
+        _macPath = null;      // a retry after installing something must search again
         var set = new ToolSet();
 
         set.JavaPath = ExistingFile(overrides?.JavaPath) ?? FindJava();
@@ -56,7 +57,25 @@ public static class ToolLocator
             if (File.Exists(za)) set.ZipAlignPath = za;
             set.BuildToolsVersion = Path.GetFileName(bt);
         }
+
+        HideSimulatedMissing(set);
         return set;
+    }
+
+/// <summary>
+    /// Testing aid: while the file named by APKGENERATOR_SIMULATE_MISSING exists, the tools listed in it
+    /// (java, bundletool, adb, build-tools - one per line or comma separated) are treated as not installed.
+    /// </summary>
+    private static void HideSimulatedMissing(ToolSet set)
+    {
+        var path = Environment.GetEnvironmentVariable("APKGENERATOR_SIMULATE_MISSING");
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+        var names = File.ReadAllText(path).Split(new[] { ',', '\n', '\r', ' ' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(n => n.Trim().ToLowerInvariant()).ToHashSet();
+        if (names.Contains("java")) { set.JavaPath = null; set.KeytoolPaths.Clear(); }
+        if (names.Contains("bundletool")) set.BundletoolPath = null;
+        if (names.Contains("adb")) set.AdbPath = null;
+        if (names.Contains("build-tools")) { set.ApkSignerJar = null; set.ZipAlignPath = null; set.BuildToolsVersion = null; }
     }
 
     /// <summary>Fills in the version strings (spawns a couple of quick processes).</summary>
@@ -266,8 +285,37 @@ public static class ToolLocator
         }
         foreach (var p in defaults)
             if (Directory.Exists(p) && seen.Add(p)) yield return p;
+
+        // Unity bundles a full Android SDK (adb, build-tools) with its Android build support module.
+        foreach (var p in UnitySdkRoots())
+            if (seen.Add(p)) yield return p;
     }
 
+    /// <summary>The SDK inside each installed Unity editor that has Android support, newest editor first.</summary>
+    private static IEnumerable<string> UnitySdkRoots()
+    {
+        var editors = new List<string>();
+        if (OperatingSystem.IsWindows())
+        {
+            var pf = Environment.GetEnvironmentVariable("ProgramFiles") ?? @"C:\Program Files";
+            editors.AddRange(SafeDirs(Path.Combine(pf, "Unity", "Hub", "Editor")).OrderByDescending(d => d, StringComparer.OrdinalIgnoreCase)
+                .Select(d => Path.Combine(d, "Editor", "Data")));
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            foreach (var ed in SafeDirs("/Applications/Unity/Hub/Editor").OrderByDescending(d => d, StringComparer.OrdinalIgnoreCase))
+            {
+                editors.Add(ed);                                          // Hub layout: PlaybackEngines sits beside Unity.app
+                editors.Add(Path.Combine(ed, "Unity.app", "Contents"));
+            }
+            editors.Add("/Applications/Unity/Unity.app/Contents");        // standalone install
+        }
+        foreach (var e in editors)
+        {
+            var sdk = Path.Combine(e, "PlaybackEngines", "AndroidPlayer", "SDK");
+            if (Directory.Exists(sdk)) yield return sdk;
+        }
+    }
     // ---------------------------------------------------------------- helpers
 
     private static string[]? _macPath;
