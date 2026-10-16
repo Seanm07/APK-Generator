@@ -166,6 +166,35 @@ public partial class MainWindow : Window
     }
 
     private async void SaveFtp_Click(object? sender, RoutedEventArgs e) => await _vm.SaveApkToFtpAsync();
+    private async void SaveAabFtp_Click(object? sender, RoutedEventArgs e) => await _vm.SaveAabToFtpAsync();
+
+    private static JobViewModel? Job(object? sender) => (sender as Control)?.DataContext as JobViewModel;
+
+    private async void CopyUrl_Click(object? sender, RoutedEventArgs e)
+    {
+        if (Job(sender) is not { WebUrl: { } url } job) return;
+        try
+        {
+            if (GetTopLevel(this)?.Clipboard is { } clipboard) await clipboard.SetTextAsync(url);
+            _vm.MarkUrlCopied(job);
+        }
+        catch { /* the clipboard can be locked by another app */ }
+    }
+
+    private void JobCancel_Click(object? sender, RoutedEventArgs e) { if (Job(sender) is { } j) _vm.CancelJob(j); }
+    private void JobDismiss_Click(object? sender, RoutedEventArgs e) { if (Job(sender) is { } j) _vm.DismissJob(j); }
+    private void JobShowInFolder_Click(object? sender, RoutedEventArgs e) { if (Job(sender) is { } j) _vm.ShowJobInFolder(j); }
+    private void CancelAll_Click(object? sender, RoutedEventArgs e) => _vm.Cancel();
+
+    private async void JobCopyError_Click(object? sender, RoutedEventArgs e)
+    {
+        if (Job(sender)?.Error is not { } err) return;
+        try
+        {
+            if (GetTopLevel(this)?.Clipboard is { } clipboard) await clipboard.SetTextAsync(err.ToString());
+        }
+        catch { /* the clipboard can be locked by another app */ }
+    }
 
     private async void Settings_Click(object? sender, RoutedEventArgs e)
     {
@@ -173,8 +202,6 @@ public partial class MainWindow : Window
         _vm.RefreshFtpState();      // the FTP button appears or disappears depending on what was saved
     }
 
-    private void Cancel_Click(object? sender, RoutedEventArgs e) => _vm.Cancel();
-    private void OpenFolder_Click(object? sender, RoutedEventArgs e) => _vm.OpenOutputFolder();
     private void DismissError_Click(object? sender, RoutedEventArgs e) => _vm.DismissError();
     private void StoreSizeDetails_Click(object? sender, RoutedEventArgs e) => _vm.ShowStoreSizeError();
     private void ClearLog_Click(object? sender, RoutedEventArgs e) => _vm.ClearLog();

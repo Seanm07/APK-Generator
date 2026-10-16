@@ -39,7 +39,7 @@ Saved passwords are encrypted with a key kept in your login Keychain.
 1. Open the app and drag your `.aab` or `.apk` into the window.
 2. Pick a device and choose **Install & Run**, or **Save APK**.
 3. (Optional) Tick **Sign APK**, select the keystore and enter the passwords - details are remembered for future.
-4. (Optional) Press the cog to enter the FTP details to enable **Save APK to FTP** for direct FTP uploads.
+4. (Optional) Press the cog to enter the FTP details to enable **Save APK to FTP** (and **Save AAB to FTP** when you dragged in an AAB) for direct FTP uploads. After an upload, **Copy URL** copies the https link.
 
 Add keystores into the `Keystores` folder, browsing for keystores will also store a copy in the folder if they don't exist.
 

@@ -27,7 +27,6 @@ public sealed class MainViewModel : ObservableObject
 
     private readonly SynchronizationContext _ui;
     private readonly StringBuilder _log = new();
-    private CancellationTokenSource? _opCts;
     private CancellationTokenSource? _sizeCts;
 
     private PackageInfo? _package;
@@ -41,7 +40,6 @@ public sealed class MainViewModel : ObservableObject
     private string _statusText = "Ready";
     private OperationError? _error;
     private string _logText = "";
-    private string? _resultPath;
     private IReadOnlyList<ToolStatusItem> _toolItems = Array.Empty<ToolStatusItem>();
 
 
@@ -67,7 +65,6 @@ public sealed class MainViewModel : ObservableObject
     public ToolSet Tools { get; private set; }
     public DevicesViewModel Devices { get; }
     public SigningViewModel Signing { get; }
-    public ObservableCollection<DeviceResultRow> DeviceResults { get; } = new();
 
     // ------------------------------------------------------------------ install options (persisted)
 
@@ -160,27 +157,16 @@ public sealed class MainViewModel : ObservableObject
                     nameof(PackageNameText), nameof(VersionNameText), nameof(VersionCodeText), nameof(MinSdkText),
                     nameof(TargetSdkText), nameof(TargetSdkIsLow), nameof(PackageNameIsOffFormat), nameof(AbisText),
                     nameof(ModulesText), nameof(Warnings), nameof(Permissions), nameof(PermissionsHeader),
-                    nameof(StoreSizeLabel), nameof(CanInstall), nameof(CanSave), nameof(SaveButtonText), nameof(SaveFtpButtonText),
+                    nameof(StoreSizeLabel), nameof(CanInstall), nameof(CanSave), nameof(SaveButtonText), nameof(SaveFtpButtonText), nameof(ShowSaveAabFtp),
                 })
                     Raise(n);
                 break;
 
-            case nameof(IsBusy):
-                Raise(nameof(CanInstall));
-                Raise(nameof(CanSave));
-                break;
         }
     }
 
     public async Task LoadFileAsync(string path)
     {
-        if (IsBusy)
-        {
-            Fail(ErrorInterpreter.Custom("Please wait", "An operation is still running – wait for it to finish or press Cancel before opening another file."),
-                "Busy");
-            return;
-        }
-
         var ext = Path.GetExtension(path).ToLowerInvariant();
         if (ext is not (".aab" or ".apk"))
         {
@@ -201,7 +187,7 @@ public sealed class MainViewModel : ObservableObject
         }
 
         ClearOutcome();
-        DeviceResults.Clear();
+        foreach (var done in Jobs.Where(j => j.IsFinished).ToList()) Jobs.Remove(done);   // finished tasks belong to the previous file
         _sizeCts?.Cancel();
         Package = info;
         SetStatus(StatusKind.Idle, "Ready");
@@ -270,29 +256,29 @@ public sealed class MainViewModel : ObservableObject
     public OperationError? Error { get => _error; private set { if (Set(ref _error, value)) Raise(nameof(HasError)); } }
     public bool HasError => Error != null;
     public string LogText { get => _logText; private set => Set(ref _logText, value); }
-    public string? ResultPath { get => _resultPath; private set { if (Set(ref _resultPath, value)) Raise(nameof(HasResult)); } }
-    public bool HasResult => ResultPath != null;
-
     /// <summary>The footer: one entry per tool, and only the missing ones are flagged.</summary>
     public IReadOnlyList<ToolStatusItem> ToolItems { get => _toolItems; private set => Set(ref _toolItems, value); }
 
     /// <summary>The tools that weren't found (drives the warning shown at launch).</summary>
     public IReadOnlyList<DependencyStatus> MissingDependencies { get; private set; } = Array.Empty<DependencyStatus>();
 
-    public bool CanInstall => HasPackage && !IsBusy;
+    public bool CanInstall => HasPackage;
     /// <summary>An AAB can always be saved as an APK; an existing APK can only be saved after re-signing it.</summary>
-    public bool CanSave => HasPackage && !IsBusy && (Package!.IsAab || Signing.Enabled);
+    public bool CanSave => HasPackage && (Package!.IsAab || Signing.Enabled);
     public string InstallButtonText => LaunchAfterInstall ? "Install & Run" : "Install";
     public string SaveButtonText => Package is { IsAab: false } ? "Save signed APK" : "Save APK";
 
     /// <summary>The FTP button only exists once a server has been entered in Settings.</summary>
     public bool FtpConfigured => !string.IsNullOrWhiteSpace(Settings.Data.Ftp.Host);
+    /// <summary>"Save AAB to FTP" uploads the bundle itself, so it only shows when the loaded file is an AAB.
+    public bool ShowSaveAabFtp => FtpConfigured && Package is { IsAab: true };
     public string SaveFtpButtonText => Package is { IsAab: false } ? "Save signed APK to FTP" : "Save APK to FTP";
 
     /// <summary>Call after the Settings window closes so the FTP button appears / disappears.</summary>
     public void RefreshFtpState()
     {
         Raise(nameof(FtpConfigured));
+        Raise(nameof(ShowSaveAabFtp));
         Raise(nameof(SaveFtpButtonText));
     }
 
@@ -320,7 +306,6 @@ public sealed class MainViewModel : ObservableObject
     private void ClearOutcome()
     {
         Error = null;
-        ResultPath = null;
     }
 
     public void DismissError()
@@ -347,23 +332,86 @@ public sealed class MainViewModel : ObservableObject
         LogText = "";
     }
 
-    // ------------------------------------------------------------------ operations
+    // ------------------------------------------------------------------ operations (each runs as its own job, side by side)
 
-    public void Cancel() => _opCts?.Cancel();
+    public ObservableCollection<JobViewModel> Jobs { get; } = new();
+
+    public void CancelJob(JobViewModel job) { if (job.IsRunning) job.Cts.Cancel(); }
+
+    public void DismissJob(JobViewModel job)
+    {
+        if (job.IsRunning) return;
+        Jobs.Remove(job);
+        RefreshJobState();
+    }
+
+    public void ShowJobInFolder(JobViewModel job)
+    {
+        if (job.ResultPath != null && File.Exists(job.ResultPath)) PlatformShell.Reveal(job.ResultPath);
+        else OpenOutputFolder();
+    }
+
+    /// <summary>Briefly shows "Copied!" on the job's button after the UI has put the link on the clipboard.</summary>
+    public async void MarkUrlCopied(JobViewModel job)
+    {
+        job.CopyLabel = "Copied!";
+        await Task.Delay(1500);
+        job.CopyLabel = "Copy URL";
+    }
+
+    /// <summary>Cancels every running task.</summary>
+    public void Cancel() { foreach (var j in Jobs.ToList()) CancelJob(j); }
 
     /// <summary>Called when the window closes: stop everything so no Java/adb processes are left behind.</summary>
     public void Shutdown()
     {
         _sizeCts?.Cancel();
-        _opCts?.Cancel();
+        Cancel();
     }
+
+    private JobViewModel StartJob(string title, string status, bool isInstall = false)
+    {
+        var job = new JobViewModel(title, isInstall) { Message = status };
+        Jobs.Add(job);
+        AppendLog($"──── {DateTime.Now:HH:mm:ss}  {title}: {status}");
+        RefreshJobState();
+        return job;
+    }
+
+    private void FinishJob(JobViewModel job, StatusKind kind, string message, OperationError? error = null)
+    {
+        job.Error = error;
+        job.Message = message;
+        job.Kind = kind;
+        RefreshJobState();
+    }
+
+    private void RefreshJobState()
+    {
+        var running = Jobs.Count(j => j.IsRunning);
+        IsBusy = Jobs.Any(j => j.IsRunning && j.IsInstall);
+        RunningCount = running;
+        if (Kind != StatusKind.Error)
+            SetStatus(StatusKind.Idle, running > 1 ? $"{running} tasks running" : running == 1 ? "1 task running" : "Ready");
+    }
+
+    private int _runningCount;
+    public int RunningCount { get => _runningCount; private set { if (Set(ref _runningCount, value)) Raise(nameof(AnyRunning)); Raise(nameof(ShowCancelAll)); } }
+    public bool AnyRunning => RunningCount > 0;
+    public bool ShowCancelAll => RunningCount > 1;
+
+    /// <summary>Tool output arrives on thread-pool threads; tag each line with its task so interleaved output stays readable.</summary>
+    private Action<string> JobLog(JobViewModel job) => line => Log($"[{job.Title}] {line}");
+
+    private void FailJob(JobViewModel job, Exception ex) =>
+        FinishJob(job, StatusKind.Error, "Failed", ErrorInterpreter.Custom("Something went wrong", technical: ex.Message));
 
     /// <summary>The checks Save APK and Save APK to FTP share: a file is loaded and the signing details are usable.</summary>
     private bool TryGetSaveInputs(out PackageInfo pkg, out SigningConfig? signing)
     {
         pkg = Package!;
         signing = null;
-        if (Package is null || IsBusy) return false;
+        if (Package is null) return false;
         ClearOutcome();
 
         var (config, signError) = Signing.GetConfig();
@@ -385,27 +433,23 @@ public sealed class MainViewModel : ObservableObject
     {
         if (!TryGetSaveInputs(out var pkg, out var signing)) return;
 
-        BeginOperation(BuildingStatus(pkg, signing));
-        var ct = _opCts!.Token;
+        var job = StartJob("Save APK", BuildingStatus(pkg, signing));
         try
         {
             if (signing != null) Signing.SaveDetails();
-            var path = await PrepareApkAsync(pkg, signing, destination, ct);
+            var path = await PrepareApkAsync(job, pkg, signing, destination);
             if (path is null) return;
 
-            ResultPath = path;
-            SetStatus(StatusKind.Success, $"Saved {Path.GetFileName(path)}  ({FormatMb(new FileInfo(path).Length)})");
+            job.ResultPath = path;
+            FinishJob(job, StatusKind.Success, $"Saved {Path.GetFileName(path)}  ({FormatMb(new FileInfo(path).Length)})");
         }
-        finally
-        {
-            EndOperation();
-        }
+        catch (Exception ex) { FailJob(job, ex); }
     }
 
     /// <summary>Save APK to FTP: builds the APK as Save APK does (also keeping a copy in Generated APKs), then uploads it to the folder set in Settings.</summary>
     public async Task SaveApkToFtpAsync()
     {
-        if (IsBusy || Package is null) return;
+        if (Package is null) return;
         var ftp = Settings.GetFtp();
         if (!ftp.IsConfigured)
         {
@@ -415,74 +459,107 @@ public sealed class MainViewModel : ObservableObject
         }
         if (!TryGetSaveInputs(out var pkg, out var signing)) return;
 
-        BeginOperation(BuildingStatus(pkg, signing));
-        var ct = _opCts!.Token;
+        var job = StartJob("Save APK to FTP", BuildingStatus(pkg, signing));
         try
         {
             if (signing != null) Signing.SaveDetails();
-            var path = await PrepareApkAsync(pkg, signing, destination: null, ct);
+            var path = await PrepareApkAsync(job, pkg, signing, destination: null);
             if (path is null) return;
 
-            ResultPath = path;
-            var name = Path.GetFileName(path);
-            var total = new FileInfo(path).Length;
-            var target = ftp.Describe();
-            SetStatus(StatusKind.Working, $"Uploading {name} to {target} …");
-            AppendLog($"Uploading {path} to {ftp.Describe(name)}");
-
-            var result = await Task.Run(() => FtpUploader.UploadAsync(ftp, path, name,
-                (percent, bytes) => OnUi(() =>
-                {
-                    if (Kind != StatusKind.Working) return;
-                    var pct = percent >= 0 ? $"{percent:0}%  " : "";
-                    StatusText = $"Uploading {name} to FTP …  {pct}({FormatMb(bytes)} of {FormatMb(total)})";
-                }), ct));
-
-            if (result.Cancelled) { SetStatus(StatusKind.Idle, "Cancelled"); return; }
-            if (result.Error != null) { Fail(result.Error, "FTP upload failed"); return; }
-
-            AppendLog("Uploaded to " + result.Message);
-            SetStatus(StatusKind.Success, $"Uploaded {name} to {target}  ({FormatMb(total)})");
+            job.ResultPath = path;
+            await UploadToFtpAsync(job, ftp, path, Path.GetFileName(path));
         }
-        finally
+        catch (Exception ex) { FailJob(job, ex); }
+    }
+
+    /// <summary>Save AAB to FTP: uploads the dragged-in .aab itself (no build) to the folder set in Settings.</summary>
+    public async Task SaveAabToFtpAsync()
+    {
+        if (Package is not { IsAab: true } pkg) return;
+        ClearOutcome();
+        var ftp = Settings.GetFtp();
+        if (!ftp.IsConfigured)
         {
-            EndOperation();
+            Fail(ErrorInterpreter.Custom("FTP isn't set up", "Open Settings (the cog button) and enter the FTP details."), "FTP not set up");
+            return;
         }
+        if (!File.Exists(pkg.FilePath))
+        {
+            Fail(ErrorInterpreter.Custom("The file has moved or been deleted", pkg.FilePath), "Upload failed");
+            return;
+        }
+
+        var job = StartJob("Save AAB to FTP", "Uploading…");
+        try { await UploadToFtpAsync(job, ftp, pkg.FilePath, pkg.FileName); }
+        catch (Exception ex) { FailJob(job, ex); }
+    }
+
+    /// <summary>Uploads one file, showing progress, and on success remembers the web link for "Copy URL".</summary>
+    private async Task UploadToFtpAsync(JobViewModel job, FtpSettings ftp, string path, string name)
+    {
+        var ct = job.Cts.Token;
+        var total = new FileInfo(path).Length;
+        var target = ftp.Describe();
+        job.Message = $"Uploading {name} to {target} …";
+        AppendLog($"[{job.Title}] Uploading {path} to {ftp.Describe(name)}");
+
+        var result = await Task.Run(() => FtpUploader.UploadAsync(ftp, path, name,
+            (percent, bytes) => OnUi(() =>
+            {
+                if (!job.IsRunning) return;
+                var pct = percent >= 0 ? $"{percent:0}%  " : "";
+                job.Message = $"Uploading {name} to FTP …  {pct}({FormatMb(bytes)} of {FormatMb(total)})";
+            }), ct));
+
+        if (result.Cancelled) { FinishJob(job, StatusKind.Idle, "Cancelled"); return; }
+        if (result.Error != null) { FinishJob(job, StatusKind.Error, "FTP upload failed", result.Error); return; }
+
+        AppendLog($"[{job.Title}] Uploaded to " + result.Message);
+        job.WebUrl = ftp.WebUrl(name);
+        FinishJob(job, StatusKind.Success, $"Uploaded {name} to {target}  ({FormatMb(total)})");
     }
 
     public async Task InstallAsync()
     {
-        if (Package is not { } pkg || IsBusy) return;
+        if (Package is not { } pkg) return;
         ClearOutcome();
-        DeviceResults.Clear();
 
         var (targets, deviceError) = Devices.GetTargets();
         if (deviceError != null) { Fail(deviceError, "Can't install yet"); return; }
         var (signing, signError) = Signing.GetConfig();
         if (signError != null) { Fail(signError, "Signing details needed"); return; }
 
-        BeginOperation(pkg.IsAab ? "Building universal APK…" : signing != null ? "Signing APK…" : "Preparing…");
-        var ct = _opCts!.Token;
+        // Two installs to the same phone at once would fight over adb, so refuse that one case.
+        var busy = Jobs.Where(j => j.IsRunning && j.IsInstall).SelectMany(j => j.Rows.Select(r => r.Name)).ToHashSet();
+        var clash = targets.FirstOrDefault(t => busy.Contains(t.Name));
+        if (clash != null)
+        {
+            Fail(ErrorInterpreter.Custom($"{clash.Name} is already being installed to", "Wait for that install to finish, or pick a different device."), "Can't install yet");
+            return;
+        }
+
+        var job = StartJob("Install", pkg.IsAab ? "Building universal APK…" : signing != null ? "Signing APK…" : "Preparing…", isInstall: true);
+        foreach (var t in targets) job.Rows.Add(new DeviceResultRow(t.Name));
+        var ct = job.Cts.Token;
         try
         {
             if (signing != null) Signing.SaveDetails();
-            var apk = await PrepareApkAsync(pkg, signing, destination: null, ct);
+            var apk = await PrepareApkAsync(job, pkg, signing, destination: null);
             if (apk is null) return;
 
             var options = CurrentOptions();
             var tools = Tools;
-            var rows = targets.Select(t => new DeviceResultRow(t.Name)).ToList();
-            foreach (var r in rows) DeviceResults.Add(r);
-            SetStatus(StatusKind.Working, targets.Count == 1 ? $"Installing to {targets[0].Name}…" : $"Installing to {targets.Count} devices…");
+            job.Message = targets.Count == 1 ? $"Installing to {targets[0].Name}…" : $"Installing to {targets.Count} devices…";
+            var log = JobLog(job);
 
             var results = await Task.WhenAll(targets.Select(async (device, i) =>
             {
-                var row = rows[i];
+                var row = job.Rows[i];
                 OnUi(() => { row.State = RowState.Working; row.Message = "Installing…"; });
                 var result = await Task.Run(() => DeviceInstaller.InstallAsync(
                     device, apk, pkg, options, tools,
                     status: s => OnUi(() => row.Message = s),
-                    log: Log, ct: ct));
+                    log: log, ct: ct));
                 OnUi(() =>
                 {
                     row.State = result.Success ? RowState.Success : result.Cancelled ? RowState.Waiting : RowState.Failed;
@@ -491,26 +568,19 @@ public sealed class MainViewModel : ObservableObject
                 return result;
             }));
 
-            Summarize(targets, results, ct);
+            Summarize(job, targets, results, ct);
         }
-        finally
-        {
-            EndOperation();
-        }
+        catch (Exception ex) { FailJob(job, ex); }
     }
 
-    private void Summarize(List<AdbDevice> targets, DeviceInstallResult[] results, CancellationToken ct)
+    private void Summarize(JobViewModel job, List<AdbDevice> targets, DeviceInstallResult[] results, CancellationToken ct)
     {
-        if (ct.IsCancellationRequested)
-        {
-            SetStatus(StatusKind.Idle, "Cancelled");
-            return;
-        }
+        if (ct.IsCancellationRequested) { FinishJob(job, StatusKind.Idle, "Cancelled"); return; }
 
         var failed = results.Where(r => !r.Success).ToList();
         if (failed.Count == 0)
         {
-            SetStatus(StatusKind.Success, targets.Count == 1
+            FinishJob(job, StatusKind.Success, targets.Count == 1
                 ? $"{targets[0].Name}: {results[0].Summary}"
                 : $"Installed on all {targets.Count} devices");
             return;
@@ -520,52 +590,81 @@ public sealed class MainViewModel : ObservableObject
         if (targets.Count > 1)
             first = new OperationError { Title = $"{failed[0].Device.Name}: {first.Title}", Hint = first.Hint, Technical = first.Technical };
 
-        Fail(first, targets.Count == 1 ? "Install failed" : $"Install failed on {failed.Count} of {targets.Count} devices");
+        FinishJob(job, StatusKind.Error, targets.Count == 1 ? "Install failed" : $"Install failed on {failed.Count} of {targets.Count} devices", first);
     }
+
+    // Jobs that need the same APK (Save APK to FTP + Install, say) share one build instead of racing to write the same file.
+    private sealed class SharedBuild
+    {
+        public Task<BuildOutcome> Task = null!;
+        public CancellationTokenSource Cts = new();
+        public int Waiters;
+    }
+    private readonly Dictionary<string, SharedBuild> _builds = new();
 
     /// <summary>
     /// Gets an APK ready: builds it from an AAB, re-signs an APK, or uses the APK as-is.
-    /// Saved to <paramref name="destination"/>, or into the Generated APKs folder when that is null. Reports its own errors.
+    /// Saved to <paramref name="destination"/>, or into the Generated APKs folder when that is null. Reports its own errors on the job.
     /// </summary>
-    private async Task<string?> PrepareApkAsync(PackageInfo pkg, SigningConfig? signing, string? destination, CancellationToken ct)
+    private async Task<string?> PrepareApkAsync(JobViewModel job, PackageInfo pkg, SigningConfig? signing, string? destination)
     {
         if (!pkg.IsAab && signing is null) return pkg.FilePath;
 
+        var ct = job.Cts.Token;
         var tools = Tools;
         var output = destination ?? Path.Combine(Paths.OutputDir, BuildService.DefaultFileName(pkg.FilePath, pkg.IsAab, signing != null));
-        Action<string> log = Log;
-        var outcome = pkg.IsAab
-            ? await Task.Run(() => BuildService.BuildUniversalApkAsync(pkg.FilePath, signing, output, tools, log, ct))
-            : await Task.Run(() => BuildService.SignApkAsync(pkg.FilePath, signing!, output, tools, log, ct));
+        var log = JobLog(job);
 
-        if (outcome.Cancelled)
+        Task<BuildOutcome> Run(CancellationToken token) => pkg.IsAab
+            ? Task.Run(() => BuildService.BuildUniversalApkAsync(pkg.FilePath, signing, output, tools, log, token))
+            : Task.Run(() => BuildService.SignApkAsync(pkg.FilePath, signing!, output, tools, log, token));
+
+        BuildOutcome outcome;
+        if (destination != null)
         {
-            SetStatus(StatusKind.Idle, "Cancelled");
+            outcome = await Run(ct);
+        }
+        else
+        {
+            var key = $"{pkg.FilePath}|{signing?.KeystorePath}|{signing?.Alias}";
+            if (!_builds.TryGetValue(key, out var shared))
+            {
+                shared = new SharedBuild();
+                shared.Task = Run(shared.Cts.Token);
+                _builds[key] = shared;
+                var started = shared;
+                _ = started.Task.ContinueWith(_ => OnUi(() => { if (_builds.TryGetValue(key, out var s) && ReferenceEquals(s, started)) _builds.Remove(key); }));
+            }
+            else job.Message = "Waiting for the build already running…";
+
+            shared.Waiters++;
+            try
+            {
+                outcome = await shared.Task.WaitAsync(ct);
+            }
+            catch (OperationCanceledException)
+            {
+                outcome = BuildOutcome.Cancel();
+            }
+            finally
+            {
+                // The build stops once nobody is waiting for it any more.
+                if (--shared.Waiters == 0 && !shared.Task.IsCompleted) shared.Cts.Cancel();
+            }
+        }
+
+        if (outcome.Cancelled || ct.IsCancellationRequested)
+        {
+            FinishJob(job, StatusKind.Idle, "Cancelled");
             return null;
         }
         if (!outcome.Success)
         {
-            Fail(outcome.Error ?? ErrorInterpreter.Custom("The build failed"), pkg.IsAab ? "Build failed" : "Signing failed");
+            FinishJob(job, StatusKind.Error, pkg.IsAab ? "Build failed" : "Signing failed", outcome.Error ?? ErrorInterpreter.Custom("The build failed"));
             return null;
         }
-        ResultPath = outcome.OutputPath;
+        job.ResultPath = outcome.OutputPath;
         return outcome.OutputPath;
-    }
-
-    private void BeginOperation(string status)
-    {
-        _opCts = new CancellationTokenSource();
-        IsBusy = true;
-        SetStatus(StatusKind.Working, status);
-        AppendLog($"──── {DateTime.Now:HH:mm:ss}  {status}");
-    }
-
-    private void EndOperation()
-    {
-        IsBusy = false;
-        _opCts?.Dispose();
-        _opCts = null;
-        if (Kind == StatusKind.Working) SetStatus(StatusKind.Idle, "Ready");   // e.g. an early return that set nothing
     }
 
     // ------------------------------------------------------------------ misc
@@ -597,11 +696,6 @@ public sealed class MainViewModel : ObservableObject
     }
     public void OpenOutputFolder()
     {
-        if (ResultPath != null && File.Exists(ResultPath))
-        {
-            PlatformShell.Reveal(ResultPath);
-            return;
-        }
         Directory.CreateDirectory(Paths.OutputDir);
         PlatformShell.Reveal(Paths.OutputDir);
     }

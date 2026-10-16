@@ -11,6 +11,17 @@ public sealed record FtpSettings(string Host, int Port, string User, string Pass
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Host);
 
+    /// <summary>
+    /// The link copied by "Copy URL": the "ftp://host" part is replaced with "https://", so an FTP path like
+    /// "/cdn.example.com/builds" becomes "https://cdn.example.com/builds/game.apk".
+    /// </summary>
+    public string WebUrl(string fileName)
+    {
+        var segments = RemoteFolder.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Append(fileName).Select(Uri.EscapeDataString);
+        return "https://" + string.Join('/', segments);
+    }
+
     /// <summary>"ftp://host:2121/builds/android/game.apk"</summary>
     public string Describe(string? fileName = null)
     {

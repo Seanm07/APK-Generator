@@ -269,6 +269,15 @@
                         <TextBlock Text="{Binding SaveFtpButtonText}" />
                     </StackPanel>
                 </Button>
+                <!-- Only for an AAB input, and only once FTP details exist: uploads the original bundle untouched -->
+                <Button x:Name="SaveAabFtpButton" Padding="22,9" Click="SaveAabFtp_Click" IsEnabled="{Binding CanInstall}"
+                        IsVisible="{Binding ShowSaveAabFtp}" AutomationProperties.AutomationId="SaveAabFtpButton" AutomationProperties.Name="Save AAB to FTP"
+                        ToolTip.Tip="Upload the AAB you dragged in, as it is, to the FTP folder set in Settings">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <c:Icon Kind="upload" Width="14" Height="14" VerticalAlignment="Center" />
+                        <TextBlock Text="Save AAB to FTP" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
 
             <Button x:Name="SettingsButton" Grid.Column="1" Classes="icon" Margin="0" MinWidth="44" Click="Settings_Click"
@@ -287,24 +296,62 @@
                     <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontSize="15" FontWeight="SemiBold"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusText}" />
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                        <Button Content="Show in folder" Click="OpenFolder_Click" Padding="14,4" IsVisible="{Binding HasResult}" />
-                        <Button Content="Cancel" Click="Cancel_Click" Padding="16,4" IsVisible="{Binding IsBusy}" />
+                        <Button Content="Cancel all" Click="CancelAll_Click" Padding="14,4" IsVisible="{Binding ShowCancelAll}" />
                         <ToggleButton x:Name="LogToggle" Content="Output log" Padding="14,4" />
                     </StackPanel>
                 </Grid>
 
-                <ProgressBar IsIndeterminate="True" Height="3" Margin="0,10,0,0" IsVisible="{Binding IsBusy}" />
-
-                <ItemsControl ItemsSource="{Binding DeviceResults}" Margin="0,10,0,0">
+                <!-- One entry per task; several run side by side -->
+                <ItemsControl ItemsSource="{Binding Jobs}" Margin="0,6,0,0">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Grid ColumnDefinitions="26,Auto,*" Margin="0,0,0,4">
-                                <c:Icon Width="14" Height="14" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                        Kind="{Binding State, Converter={x:Static local:Conv.RowIcon}}"
-                                        TextElement.Foreground="{Binding State, Converter={x:Static local:Conv.RowBrush}}" />
-                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" Margin="0,0,12,0" />
-                                <TextBlock Grid.Column="2" Text="{Binding Message}" TextWrapping="Wrap" Opacity="0.85" />
-                            </Grid>
+                            <Border BorderBrush="#33808080" BorderThickness="0,1,0,0" Padding="0,9,0,4" Margin="0,6,0,0">
+                                <StackPanel>
+                                    <Grid ColumnDefinitions="26,Auto,*,Auto">
+                                        <c:Icon Width="16" Height="16" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                Kind="{Binding Kind, Converter={x:Static local:Conv.StatusIcon}}"
+                                                TextElement.Foreground="{Binding Kind, Converter={x:Static local:Conv.StatusBrush}}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" Margin="0,0,12,0" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Message}" TextTrimming="CharacterEllipsis" Opacity="0.85"
+                                                   VerticalAlignment="Center" ToolTip.Tip="{Binding Message}" />
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0">
+                                            <Button Content="Show in folder" Click="JobShowInFolder_Click" Padding="12,3" IsVisible="{Binding ShowInFolderVisible}" />
+                                            <Button x:Name="CopyUrlButton" Content="{Binding CopyLabel}" Click="CopyUrl_Click" Padding="12,3" MinWidth="90"
+                                                    HorizontalContentAlignment="Center" IsVisible="{Binding HasUploadUrl}" AutomationProperties.AutomationId="CopyUrlButton" />
+                                            <Button Content="Cancel" Click="JobCancel_Click" Padding="14,3" IsVisible="{Binding IsRunning}" />
+                                            <Button Content="Dismiss" Click="JobDismiss_Click" Padding="12,3" IsVisible="{Binding IsFinished}" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <ProgressBar IsIndeterminate="True" Height="3" Margin="0,8,0,0" IsVisible="{Binding IsRunning}" />
+                                    <ItemsControl ItemsSource="{Binding Rows}" Margin="26,6,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid ColumnDefinitions="26,Auto,*" Margin="0,0,0,4">
+                                                    <c:Icon Width="14" Height="14" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                            Kind="{Binding State, Converter={x:Static local:Conv.RowIcon}}"
+                                                            TextElement.Foreground="{Binding State, Converter={x:Static local:Conv.RowBrush}}" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" Margin="0,0,12,0" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding Message}" TextWrapping="Wrap" Opacity="0.85" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Border IsVisible="{Binding HasError}" Background="{StaticResource ErrorTintBrush}"
+                                            BorderBrush="{StaticResource ErrorBrush}" BorderThickness="3,0,0,0" CornerRadius="6"
+                                            Padding="14,10" Margin="26,8,0,4">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Error.Title}" FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Error.Hint}" TextWrapping="Wrap" Margin="0,4,0,0" Opacity="0.9"
+                                                       IsVisible="{Binding Error.Hint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            <TextBox Text="{Binding Error.Technical, Mode=OneWay}" IsReadOnly="True" FontFamily="{StaticResource MonoFont}"
+                                                     FontSize="12" MaxHeight="120" TextWrapping="Wrap" Margin="0,10,0,0"
+                                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                     IsVisible="{Binding Error.Technical, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            <Button Content="Copy details" Click="JobCopyError_Click" Padding="14,4" Margin="0,10,0,0" HorizontalAlignment="Left" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

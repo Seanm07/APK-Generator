@@ -395,6 +395,16 @@
                         <TextBlock Text="{Binding SaveFtpButtonText}" />
                     </StackPanel>
                 </Button>
+                <!-- Uploads the dragged-in .aab as it is; only shown when the loaded file is an AAB -->
+                <Button x:Name="SaveAabFtpButton" Margin="10,0,0,0" Padding="22,9" Click="SaveAabFtp_Click" IsEnabled="{Binding CanInstall}"
+                        Visibility="{Binding ShowSaveAabFtp, Converter={StaticResource BoolVis}}"
+                        AutomationProperties.AutomationId="SaveAabFtpButton" AutomationProperties.Name="Save AAB to FTP"
+                        ToolTip="Upload this .aab file, as it is, to the FTP folder set in Settings">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource IconText}" Text="&#xE898;" Margin="0,0,10,0" />
+                        <TextBlock Text="Save AAB to FTP" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
 
             <Button x:Name="SettingsButton" Grid.Column="1" Style="{StaticResource IconButton}" Margin="0"
@@ -418,32 +428,79 @@
                     <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontSize="15" FontWeight="SemiBold"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusText}" />
                     <StackPanel Grid.Column="2" Orientation="Horizontal">
-                        <Button Content="Show in folder" Click="OpenFolder_Click" Margin="8,0,0,0" Padding="14,4"
-                                Visibility="{Binding HasResult, Converter={StaticResource BoolVis}}" />
-                        <Button Content="Cancel" Click="Cancel_Click" Margin="8,0,0,0" Padding="16,4"
-                                Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}" />
+                        <Button Content="Cancel all" Click="CancelAll_Click" Margin="8,0,0,0" Padding="14,4"
+                                Visibility="{Binding ShowCancelAll, Converter={StaticResource BoolVis}}" />
                         <ToggleButton x:Name="LogToggle" Content="Output log" Margin="8,0,0,0" Padding="14,4" />
                     </StackPanel>
                 </Grid>
 
-                <ProgressBar IsIndeterminate="True" Height="3" Margin="0,10,0,0"
-                             Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}" />
-
-                <ItemsControl ItemsSource="{Binding DeviceResults}" Margin="0,10,0,0">
+                <!-- One entry per task; several run side by side -->
+                <ItemsControl ItemsSource="{Binding Jobs}" Margin="0,6,0,0">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Grid Margin="0,0,0,4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="26" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Style="{StaticResource IconText}"
-                                           Text="{Binding State, Converter={StaticResource RowStateConv}, ConverterParameter=glyph}"
-                                           Foreground="{Binding State, Converter={StaticResource RowStateConv}, ConverterParameter=brush}" />
-                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" Margin="0,0,12,0" />
-                                <TextBlock Grid.Column="2" Text="{Binding Message}" TextWrapping="Wrap" Opacity="0.85" />
-                            </Grid>
+                            <Border BorderBrush="#33808080" BorderThickness="0,1,0,0" Padding="0,9,0,4" Margin="0,6,0,0">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="26" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Style="{StaticResource IconText}" VerticalAlignment="Center"
+                                                   Text="{Binding Kind, Converter={StaticResource StatusKindConv}, ConverterParameter=glyph}"
+                                                   Foreground="{Binding Kind, Converter={StaticResource StatusKindConv}, ConverterParameter=brush}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" Margin="0,0,12,0" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Message}" TextTrimming="CharacterEllipsis" Opacity="0.85"
+                                                   VerticalAlignment="Center" ToolTip="{Binding Message}" />
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal">
+                                            <Button Content="Show in folder" Click="JobShowInFolder_Click" Margin="8,0,0,0" Padding="12,3"
+                                                    Visibility="{Binding ShowInFolderVisible, Converter={StaticResource BoolVis}}" />
+                                            <Button x:Name="CopyUrlButton" Content="{Binding CopyLabel}" Click="CopyUrl_Click" Margin="8,0,0,0" Padding="12,3"
+                                                    MinWidth="90" AutomationProperties.AutomationId="CopyUrlButton"
+                                                    ToolTip="Copy the web link to the uploaded file"
+                                                    Visibility="{Binding HasUploadUrl, Converter={StaticResource BoolVis}}" />
+                                            <Button Content="Cancel" Click="JobCancel_Click" Margin="8,0,0,0" Padding="14,3"
+                                                    Visibility="{Binding IsRunning, Converter={StaticResource BoolVis}}" />
+                                            <Button Content="Dismiss" Click="JobDismiss_Click" Margin="8,0,0,0" Padding="12,3"
+                                                    Visibility="{Binding IsFinished, Converter={StaticResource BoolVis}}" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <ProgressBar IsIndeterminate="True" Height="3" Margin="0,8,0,0"
+                                                 Visibility="{Binding IsRunning, Converter={StaticResource BoolVis}}" />
+                                    <ItemsControl ItemsSource="{Binding Rows}" Margin="26,6,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="26" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Style="{StaticResource IconText}"
+                                                               Text="{Binding State, Converter={StaticResource RowStateConv}, ConverterParameter=glyph}"
+                                                               Foreground="{Binding State, Converter={StaticResource RowStateConv}, ConverterParameter=brush}" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" Margin="0,0,12,0" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding Message}" TextWrapping="Wrap" Opacity="0.85" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Border Visibility="{Binding HasError, Converter={StaticResource BoolVis}}"
+                                            Background="{StaticResource ErrorTintBrush}" BorderBrush="{StaticResource ErrorBrush}"
+                                            BorderThickness="3,0,0,0" CornerRadius="6" Padding="14,10" Margin="26,8,0,4">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Error.Title}" FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Error.Hint}" TextWrapping="Wrap" Margin="0,4,0,0" Opacity="0.9"
+                                                       Visibility="{Binding Error.Hint, Converter={StaticResource HasValueVis}}" />
+                                            <TextBox Text="{Binding Error.Technical, Mode=OneWay}" IsReadOnly="True" FontFamily="{StaticResource MonoFont}"
+                                                     FontSize="12" MaxHeight="120" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,10,0,0"
+                                                     Visibility="{Binding Error.Technical, Converter={StaticResource HasValueVis}}" />
+                                            <Button Content="Copy details" Click="JobCopyError_Click" Padding="14,4" Margin="0,10,0,0" HorizontalAlignment="Left" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
