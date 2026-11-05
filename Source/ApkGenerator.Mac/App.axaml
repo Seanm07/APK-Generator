@@ -20,6 +20,30 @@
         <SolidColorBrush x:Key="ErrorTintBrush" Color="#1FE5484D" />
         <SolidColorBrush x:Key="WarningTintBrush" Color="#26C98A00" />
 
+            <!-- Spacing: the window code swaps these for tighter values when the window is small. -->
+            <Thickness x:Key="PagePad">28,20,28,14</Thickness>
+            <Thickness x:Key="DividerGap">0,14,0,14</Thickness>
+            <Thickness x:Key="FactGapRB">0,0,16,16</Thickness>
+            <Thickness x:Key="FactGapB">0,0,0,16</Thickness>
+            <Thickness x:Key="FactGapR">0,0,16,0</Thickness>
+            <Thickness x:Key="BlockGap">0,16,0,0</Thickness>
+            <Thickness x:Key="SectionGap">0,18,0,0</Thickness>
+            <Thickness x:Key="CheckGap">0,0,0,10</Thickness>
+            <Thickness x:Key="LabelGap">0,14,0,4</Thickness>
+            <Thickness x:Key="ActionPad">28,2,28,12</Thickness>
+            <Thickness x:Key="BtnGap">0,0,10,6</Thickness>
+            <Thickness x:Key="BtnPad">22,9</Thickness>
+            <Thickness x:Key="StatusPad">28,0,28,10</Thickness>
+            <Thickness x:Key="StatusInnerPad">16,12</Thickness>
+            <Thickness x:Key="FooterPad">30,0,28,10</Thickness>
+            <Thickness x:Key="CardPad">18</Thickness>
+            <Thickness x:Key="TitleGap">0,0,0,12</Thickness>
+            <x:Double x:Key="DropHeight">150</x:Double>
+        <x:Double x:Key="DropIcon">34</x:Double>
+        <Thickness x:Key="DropTextGap">0,8,0,0</Thickness>
+        <Thickness x:Key="DropBtnGap">0,10,0,0</Thickness>
+        <Thickness x:Key="DropBtnPad">18,6,18,6</Thickness>
+
         <FontFamily x:Key="MonoFont">Menlo,Consolas,Cascadia Mono,monospace</FontFamily>
     </Application.Resources>
 
@@ -32,7 +56,7 @@
             <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="18" />
+            <Setter Property="Padding" Value="{DynamicResource CardPad}" />
         </Style>
 
         <Style Selector="TextBlock.muted">
@@ -42,7 +66,7 @@
         <Style Selector="TextBlock.section">
             <Setter Property="FontSize" Value="15" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,0,0,12" />
+            <Setter Property="Margin" Value="{DynamicResource TitleGap}" />
         </Style>
         <Style Selector="TextBlock.label">
             <Setter Property="FontSize" Value="12" />
@@ -82,6 +106,6 @@
         </Style>
         <Style Selector="Border.pill.danger"><Setter Property="Background" Value="{StaticResource WarningTintBrush}" /></Style>
 
-        <Style Selector="CheckBox"><Setter Property="Margin" Value="0,0,0,10" /></Style>
+        <Style Selector="CheckBox"><Setter Property="Margin" Value="{DynamicResource CheckGap}" /></Style>
     </Application.Styles>
 </Application>

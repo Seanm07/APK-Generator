@@ -39,6 +39,11 @@
         <TextBox x:Name="FolderBox" Text="{Binding RemoteFolder, UpdateSourceTrigger=PropertyChanged}"
                  ToolTip="For example /builds/android. The folder is created if it doesn't exist." />
 
+        <TextBlock Style="{StaticResource FieldLabel}" Text="FTP path replacement when copying URL" Margin="0,14,0,4" />
+        <TextBox x:Name="UrlBaseBox" Text="{Binding UrlBase, UpdateSourceTrigger=PropertyChanged}"
+                 ToolTip="The web address that stands in for the FTP path in the link copied by Copy URL, e.g. https://www.example.com/builds/" />
+        <TextBlock Style="{StaticResource Muted}" FontSize="12" Margin="0,4,0,0" Text="{Binding UrlBaseHint}" />
+
         <CheckBox x:Name="TlsCheck" IsChecked="{Binding UseTls}" Content="Use TLS (FTPS)" Margin="0,14,0,0"
                   ToolTip="Encrypts the connection. Only works if the server supports it." />
 

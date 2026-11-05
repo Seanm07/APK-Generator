@@ -14,6 +14,7 @@ public sealed class SettingsViewModel : ObservableObject
     private string _password;
     private string _remoteFolder;
     private bool _useTls;
+    private string _urlBase;
 
     private string _testMessage = "";
     private bool _testIsError;
@@ -31,6 +32,7 @@ public sealed class SettingsViewModel : ObservableObject
         _password = f.Password;
         _remoteFolder = f.RemoteFolder;
         _useTls = f.UseTls;
+        _urlBase = f.UrlBase;
     }
 
     public string Host { get => _host; set => Set(ref _host, value); }
@@ -39,6 +41,17 @@ public sealed class SettingsViewModel : ObservableObject
     public string Password { get => _password; set => Set(ref _password, value); }
     public string RemoteFolder { get => _remoteFolder; set => Set(ref _remoteFolder, value); }
     public bool UseTls { get => _useTls; set => Set(ref _useTls, value); }
+    public string UrlBase { get => _urlBase; set => Set(ref _urlBase, value); }
+
+    /// <summary>Shown under the "replacement when copying URL" box: what blank will use for the details entered so far.</summary>
+    public string UrlBaseHint
+    {
+        get
+        {
+            var (host, folder, _) = Split();
+            return "Leave blank to use " + new FtpSettings(host, 21, "", "", folder, false).ResolveUrlBase();
+        }
+    }
 
     public string TestMessage { get => _testMessage; private set => Set(ref _testMessage, value); }
     public bool TestIsError { get => _testIsError; private set => Set(ref _testIsError, value); }
@@ -51,6 +64,7 @@ public sealed class SettingsViewModel : ObservableObject
     {
         // Any edit makes the last test result stale, and abandons a test that is still running
         // (otherwise its late result would be shown against the newly edited details).
+        if (name is nameof(Host) or nameof(RemoteFolder)) Raise(nameof(UrlBaseHint));
         if (name is nameof(Host) or nameof(Port) or nameof(User) or nameof(Password) or nameof(RemoteFolder) or nameof(UseTls))
         {
             _testCts?.Cancel();
@@ -62,11 +76,8 @@ public sealed class SettingsViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Turns what was typed into settings. Forgives "ftp://host/folder" and "host:2121" in the server box.
-    /// Returns null (and sets <see cref="ValidationError"/>) if the port isn't usable.
-    /// </summary>
-    private FtpSettings? Normalize()
+    /// <summary>Forgives "ftp://host/folder" and "host:2121" in the server box.</summary>
+    private (string host, string folder, string portText) Split()
     {
         var host = Host.Trim();
         var folder = RemoteFolder.Trim();
@@ -86,6 +97,13 @@ public sealed class SettingsViewModel : ObservableObject
             portText = host[(colon + 1)..];
             host = host[..colon];
         }
+        return (host, folder, portText);
+    }
+
+    /// <summary>Turns what was typed into settings. Returns null (and sets <see cref="ValidationError"/>) if the port isn't usable.</summary>
+    private FtpSettings? Normalize()
+    {
+        var (host, folder, portText) = Split();
 
         if (!int.TryParse(portText, out var port) || port is < 1 or > 65535)
         {
@@ -93,7 +111,7 @@ public sealed class SettingsViewModel : ObservableObject
             return null;
         }
 
-        return new FtpSettings(host, port, User.Trim(), Password, folder, UseTls);
+        return new FtpSettings(host, port, User.Trim(), Password, folder, UseTls, UrlBase.Trim());
     }
 
     /// <summary>Validates and stores the details. A blank server clears the FTP setup (the button disappears).</summary>

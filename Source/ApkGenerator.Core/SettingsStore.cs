@@ -21,6 +21,8 @@ public sealed class FtpRecord
     public string? Password { get; set; }
     public string RemoteFolder { get; set; } = "";
     public bool UseTls { get; set; }
+    /// <summary>What "Copy URL" replaces the FTP path with; blank = guess from the server / path.</summary>
+    public string UrlBase { get; set; } = "";
 }
 
 public sealed class SizeCacheEntry
@@ -184,7 +186,7 @@ public sealed class SettingsStore
     {
         var f = Data.Ftp;
         return new FtpSettings(f.Host ?? "", f.Port is > 0 and <= 65535 ? f.Port : 21, f.User ?? "",
-            SecretProtector.Unprotect(f.Password) ?? "", f.RemoteFolder ?? "", f.UseTls);
+            SecretProtector.Unprotect(f.Password) ?? "", f.RemoteFolder ?? "", f.UseTls, f.UrlBase ?? "");
     }
 
     public void SaveFtp(FtpSettings s)
@@ -197,6 +199,7 @@ public sealed class SettingsStore
             Password = SecretProtector.Protect(s.Password),
             RemoteFolder = s.RemoteFolder.Trim(),
             UseTls = s.UseTls,
+            UrlBase = s.UrlBase.Trim(),
         };
         Save();
     }

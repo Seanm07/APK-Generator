@@ -39,7 +39,9 @@ Saved passwords are encrypted with a key kept in your login Keychain.
 1. Open the app and drag your `.aab` or `.apk` into the window.
 2. Pick a device and choose **Install & Run**, or **Save APK**.
 3. (Optional) Tick **Sign APK**, select the keystore and enter the passwords - details are remembered for future.
-4. (Optional) Press the cog to enter the FTP details to enable **Save APK to FTP** (and **Save AAB to FTP** when you dragged in an AAB) for direct FTP uploads. After an upload, **Copy URL** copies the https link.
+4. (Optional) Press the cog to enter the FTP details to enable **Save APK to FTP** (and **Save AAB to FTP** when you dragged in an AAB) for direct FTP uploads. **Copy URL** appears as soon as an upload starts and copies the web link; set "FTP path replacement when copying URL" in Settings to control it (blank guesses `https://www.<your domain>/`).
+5. Tasks (installs, saves, uploads) run side by side and are listed at the bottom.
+6. If a Fire device is connected, **Reset Amazon Appstore State** appears under Target device.
 
 Add keystores into the `Keystores` folder, browsing for keystores will also store a copy in the folder if they don't exist.
 

@@ -42,6 +42,8 @@ public sealed class DevicesViewModel : ObservableObject
 
     public ObservableCollection<DeviceChoice> Choices { get; } = new();
     public List<AdbDevice> Devices { get; private set; } = new();
+    /// <summary>True when a ready Amazon (Fire) device is connected: shows "Reset Amazon Appstore State".</summary>
+    public bool HasAmazonDevice => Devices.Any(d => d.IsUsable && d.IsAmazon);
 
     public DeviceChoice? Selected { get => _selected; set => Set(ref _selected, value); }
     public bool ShowIpEntry { get => _showIpEntry; private set => Set(ref _showIpEntry, value); }
@@ -84,6 +86,7 @@ public sealed class DevicesViewModel : ObservableObject
             _lastRefreshUtc = DateTime.UtcNow;
             _hasListed = true;
             Devices = result.Devices;
+            Raise(nameof(HasAmazonDevice));
             RebuildChoices(result.Devices, wanted);
 
             if (result.Error != null)

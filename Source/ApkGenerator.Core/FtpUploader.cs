@@ -4,22 +4,55 @@ using FluentFTP;
 
 namespace ApkGenerator.Core;
 
-/// <summary>FTP details as entered in the settings window. A blank server means "FTP not set up".</summary>
-public sealed record FtpSettings(string Host, int Port, string User, string Password, string RemoteFolder, bool UseTls)
+/// <summary>
+/// FTP details as entered in the settings window. A blank server means "FTP not set up".
+/// <paramref name="UrlBase"/> is what "Copy URL" puts in front of the file name; blank means a guess from the server / path.
+/// </summary>
+public sealed record FtpSettings(string Host, int Port, string User, string Password, string RemoteFolder, bool UseTls, string UrlBase = "")
 {
     public static FtpSettings Empty { get; } = new("", 21, "", "", "", false);
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Host);
 
-    /// <summary>
-    /// The link copied by "Copy URL": the "ftp://host" part is replaced with "https://", so an FTP path like
-    /// "/cdn.example.com/builds" becomes "https://cdn.example.com/builds/game.apk".
-    /// </summary>
-    public string WebUrl(string fileName)
+    private static readonly Regex DomainSegment = new(@"^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly HashSet<string> SecondLevel = new(StringComparer.OrdinalIgnoreCase) { "co", "com", "org", "net", "gov", "edu", "ac" };
+
+    /// <summary>The link copied by "Copy URL": the FTP folder is replaced by <see cref="ResolveUrlBase"/>, then the file name.</summary>
+    public string WebUrl(string fileName) => ResolveUrlBase() + Uri.EscapeDataString(fileName);
+
+    /// <summary>"https://www.example.com/" – the custom replacement if one was entered, otherwise the guessed default.</summary>
+    public string ResolveUrlBase()
     {
-        var segments = RemoteFolder.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Append(fileName).Select(Uri.EscapeDataString);
-        return "https://" + string.Join('/', segments);
+        var custom = UrlBase.Trim();
+        if (custom.Length == 0) return "https://" + DefaultDomain() + "/";
+
+        if (!custom.Contains("://", StringComparison.Ordinal)) custom = "https://" + custom.TrimStart('/');
+        return custom.EndsWith('/') ? custom : custom + "/";
+    }
+
+    /// <summary>
+    /// The site's name: a domain-looking folder in the FTP path ("/example.com/public_html" -> www.example.com),
+    /// otherwise the server with its subdomains removed (ftp.example.com -> www.example.com).
+    /// </summary>
+    public string DefaultDomain()
+    {
+        var segment = RemoteFolder.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault(s => DomainSegment.IsMatch(s));
+        if (segment != null)
+            return StripSubdomains(segment).Equals(segment, StringComparison.OrdinalIgnoreCase) ? "www." + segment : segment;
+
+        var host = Host.Trim();
+        if (host.Length == 0) return "www.domainname.com";
+        if (System.Net.IPAddress.TryParse(host, out _) || !host.Contains('.')) return host;   // an IP address or "localhost" has no site name to guess
+        return "www." + StripSubdomains(host);
+    }
+
+    private static string StripSubdomains(string name)
+    {
+        var labels = name.Split('.');
+        if (labels.Length <= 2) return name;
+        var keep = labels[^1].Length == 2 && SecondLevel.Contains(labels[^2]) && labels.Length >= 3 ? 3 : 2;   // example.co.uk
+        return string.Join('.', labels.Skip(labels.Length - keep));
     }
 
     /// <summary>"ftp://host:2121/builds/android/game.apk"</summary>

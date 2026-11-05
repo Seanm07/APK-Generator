@@ -13,6 +13,8 @@ public sealed class AdbDevice
     public string? AndroidRelease { get; init; }
 
     public bool IsUsable => State == "device";
+    /// <summary>A Fire tablet / Fire TV: these have the Amazon Appstore (com.amazon.venezia).</summary>
+    public bool IsAmazon => Manufacturer?.Contains("amazon", StringComparison.OrdinalIgnoreCase) == true;
     public bool IsWireless => Serial.Contains(':') || Serial.Contains("_adb-tls-");
 
     /// <summary>"Samsung SM-S906B · Android 14"</summary>

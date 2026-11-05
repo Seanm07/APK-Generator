@@ -60,6 +60,35 @@ public partial class MainWindow : Window
         if (!_vm.IsBusy) await _vm.Devices.RefreshAsync(force: false);
     }
 
+    // ------------------------------------------------------------------ responsive layout
+
+    private bool? _narrow;
+
+    private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        Density.Apply(e.NewSize.Width < 960 || e.NewSize.Height < 820);   // tighter margins and paddings
+        SetNarrow(e.NewSize.Width < 760);                                  // device and signing cards stack instead of sitting side by side
+    }
+
+    private void SetNarrow(bool narrow)
+    {
+        if (_narrow == narrow) return;
+        _narrow = narrow;
+
+        OptionsGrid.RowDefinitions.Clear();
+        OptionsGrid.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
+        OptionsGrid.ColumnDefinitions[1].Width = narrow ? new GridLength(0) : new GridLength(16);
+        OptionsGrid.ColumnDefinitions[2].Width = narrow ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+        if (narrow)
+        {
+            OptionsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            OptionsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        }
+        Grid.SetColumn(SigningCard, narrow ? 0 : 2);
+        Grid.SetRow(SigningCard, narrow ? 1 : 0);
+        SigningCard.Margin = narrow ? new Thickness(0, 8, 0, 0) : new Thickness(0);
+    }
+
     // ------------------------------------------------------------------ drag & drop
 
     private static string[]? DroppedFiles(DragEventArgs e) =>
@@ -167,6 +196,7 @@ public partial class MainWindow : Window
     private void JobCancel_Click(object sender, RoutedEventArgs e) { if (Job(sender) is { } j) _vm.CancelJob(j); }
     private void JobDismiss_Click(object sender, RoutedEventArgs e) { if (Job(sender) is { } j) _vm.DismissJob(j); }
     private void JobShowInFolder_Click(object sender, RoutedEventArgs e) { if (Job(sender) is { } j) _vm.ShowJobInFolder(j); }
+    private async void ResetAmazon_Click(object sender, RoutedEventArgs e) => await _vm.ResetAmazonAppstoreAsync();
     private void CancelAll_Click(object sender, RoutedEventArgs e) => _vm.Cancel();
 
     private void JobCopyError_Click(object sender, RoutedEventArgs e)

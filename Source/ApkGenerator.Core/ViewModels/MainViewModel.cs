@@ -501,6 +501,7 @@ public sealed class MainViewModel : ObservableObject
         var total = new FileInfo(path).Length;
         var target = ftp.Describe();
         job.Message = $"Uploading {name} to {target} …";
+        job.WebUrl = ftp.WebUrl(name);   // the link is known before the upload finishes, so "Copy URL" is available straight away
         AppendLog($"[{job.Title}] Uploading {path} to {ftp.Describe(name)}");
 
         var result = await Task.Run(() => FtpUploader.UploadAsync(ftp, path, name,
@@ -511,11 +512,10 @@ public sealed class MainViewModel : ObservableObject
                 job.Message = $"Uploading {name} to FTP …  {pct}({FormatMb(bytes)} of {FormatMb(total)})";
             }), ct));
 
-        if (result.Cancelled) { FinishJob(job, StatusKind.Idle, "Cancelled"); return; }
-        if (result.Error != null) { FinishJob(job, StatusKind.Error, "FTP upload failed", result.Error); return; }
+        if (result.Cancelled) { job.WebUrl = null; FinishJob(job, StatusKind.Idle, "Cancelled"); return; }
+        if (result.Error != null) { job.WebUrl = null; FinishJob(job, StatusKind.Error, "FTP upload failed", result.Error); return; }
 
         AppendLog($"[{job.Title}] Uploaded to " + result.Message);
-        job.WebUrl = ftp.WebUrl(name);
         FinishJob(job, StatusKind.Success, $"Uploaded {name} to {target}  ({FormatMb(total)})");
     }
 
@@ -529,12 +529,9 @@ public sealed class MainViewModel : ObservableObject
         var (signing, signError) = Signing.GetConfig();
         if (signError != null) { Fail(signError, "Signing details needed"); return; }
 
-        // Two installs to the same phone at once would fight over adb, so refuse that one case.
-        var busy = Jobs.Where(j => j.IsRunning && j.IsInstall).SelectMany(j => j.Rows.Select(r => r.Name)).ToHashSet();
-        var clash = targets.FirstOrDefault(t => busy.Contains(t.Name));
-        if (clash != null)
+        if (BusyDevice(targets) is { } clash)
         {
-            Fail(ErrorInterpreter.Custom($"{clash.Name} is already being installed to", "Wait for that install to finish, or pick a different device."), "Can't install yet");
+            Fail(ErrorInterpreter.Custom($"{clash.Name} is already being used by another task", "Wait for that task to finish, or pick a different device."), "Can't install yet");
             return;
         }
 
@@ -569,6 +566,75 @@ public sealed class MainViewModel : ObservableObject
             }));
 
             Summarize(job, targets, results, ct);
+        }
+        catch (Exception ex) { FailJob(job, ex); }
+    }
+
+    /// <summary>Two tasks talking to the same phone at once would fight over adb, so installs and resets don't overlap on a device.</summary>
+    private AdbDevice? BusyDevice(IEnumerable<AdbDevice> targets)
+    {
+        var busy = Jobs.Where(j => j.IsRunning && j.IsInstall).SelectMany(j => j.Rows.Select(r => r.Name)).ToHashSet();
+        return targets.FirstOrDefault(t => busy.Contains(t.Name));
+    }
+
+    /// <summary>The Fire devices "Reset Amazon Appstore State" acts on: the selected one, or every connected one for "All devices".</summary>
+    private List<AdbDevice> AmazonTargets()
+    {
+        var amazon = Devices.Devices.Where(d => d.IsUsable && d.IsAmazon).ToList();
+        return Devices.Selected switch
+        {
+            { Kind: DeviceChoiceKind.Device } c when c.Device!.IsAmazon && c.Device.IsUsable => new List<AdbDevice> { c.Device },
+            _ => amazon,   // all devices, or a non-Amazon device is selected: still reset the Fire devices that are connected
+        };
+    }
+
+    /// <summary>Reset Amazon Appstore State: force-stops com.amazon.venezia and clears its data on the connected Fire device(s).</summary>
+    public async Task ResetAmazonAppstoreAsync()
+    {
+        ClearOutcome();
+        var targets = AmazonTargets();
+        if (targets.Count == 0)
+        {
+            Fail(ErrorInterpreter.Custom("No Amazon device is connected", "Connect a Fire tablet or Fire TV, then press Refresh."), "Can't reset yet");
+            return;
+        }
+        if (BusyDevice(targets) is { } clash)
+        {
+            Fail(ErrorInterpreter.Custom($"{clash.Name} is already being used by another task", "Wait for that task to finish first."), "Can't reset yet");
+            return;
+        }
+
+        var job = StartJob("Reset Amazon Appstore", targets.Count == 1 ? $"Resetting on {targets[0].Name}…" : $"Resetting on {targets.Count} devices…", isInstall: true);
+        foreach (var t in targets) job.Rows.Add(new DeviceResultRow(t.Name));
+        var ct = job.Cts.Token;
+        var tools = Tools;
+        var log = JobLog(job);
+        try
+        {
+            var results = await Task.WhenAll(targets.Select(async (device, i) =>
+            {
+                var row = job.Rows[i];
+                OnUi(() => { row.State = RowState.Working; row.Message = "Resetting…"; });
+                var result = await Task.Run(() => AmazonAppstore.ResetAsync(device, tools, s => OnUi(() => row.Message = s), log, ct));
+                OnUi(() =>
+                {
+                    row.State = result.Success ? RowState.Success : result.Cancelled ? RowState.Waiting : RowState.Failed;
+                    row.Message = result.Summary;
+                });
+                return result;
+            }));
+
+            if (ct.IsCancellationRequested) { FinishJob(job, StatusKind.Idle, "Cancelled"); return; }
+            var failed = results.Where(r => !r.Success).ToList();
+            if (failed.Count == 0)
+                FinishJob(job, StatusKind.Success, targets.Count == 1 ? $"{targets[0].Name}: Appstore state reset" : $"Appstore state reset on all {targets.Count} devices");
+            else
+            {
+                var first = failed[0].Error ?? ErrorInterpreter.Custom("The reset failed");
+                if (targets.Count > 1)
+                    first = new OperationError { Title = $"{failed[0].Device.Name}: {first.Title}", Hint = first.Hint, Technical = first.Technical };
+                FinishJob(job, StatusKind.Error, targets.Count == 1 ? "Reset failed" : $"Reset failed on {failed.Count} of {targets.Count} devices", first);
+            }
         }
         catch (Exception ex) { FailJob(job, ex); }
     }

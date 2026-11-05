@@ -5,25 +5,25 @@
         x:Class="ApkGenerator.Mac.MainWindow"
         Title="APK Generator"
         Icon="/Assets/icon.png"
-        Width="1080" Height="960" MinWidth="900" MinHeight="680"
+        Width="1080" Height="960" MinWidth="520" MinHeight="420"
         WindowStartupLocation="CenterScreen">
 
     <Grid RowDefinitions="*,Auto,Auto,Auto">
 
         <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="28,20,28,14">
+            <StackPanel Margin="{DynamicResource PagePad}">
 
                 <!-- Drop zone: shown until a file is loaded -->
-                <Grid Height="150" IsVisible="{Binding !HasPackage}">
+                <Grid MinHeight="{DynamicResource DropHeight}" IsVisible="{Binding !HasPackage}">
                     <Rectangle Stroke="{StaticResource MutedBrush}" StrokeThickness="1.5" StrokeDashArray="5,4"
                                RadiusX="10" RadiusY="10" Fill="{StaticResource CardBrush}" />
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <c:Icon Kind="download" Width="34" Height="34" Opacity="0.7" HorizontalAlignment="Center" />
+                        <c:Icon Kind="download" Width="{DynamicResource DropIcon}" Height="{DynamicResource DropIcon}" Opacity="0.7" HorizontalAlignment="Center" />
                         <TextBlock Text="Drag an AAB or APK file into this window" FontSize="17" FontWeight="SemiBold"
-                                   HorizontalAlignment="Center" Margin="0,8,0,0" />
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0" Spacing="10">
+                                   HorizontalAlignment="Center" Margin="{DynamicResource DropTextGap}" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="{DynamicResource DropBtnGap}" Spacing="10">
                             <TextBlock Text="or" Classes="muted" VerticalAlignment="Center" />
-                            <Button Content="Browse…" Click="BrowseFile_Click" Padding="18,6" />
+                            <Button Content="Browse…" Click="BrowseFile_Click" Padding="{DynamicResource DropBtnPad}" />
                         </StackPanel>
                     </StackPanel>
                 </Grid>
@@ -45,15 +45,15 @@
                             <Button Grid.Column="2" Content="Change file…" Click="BrowseFile_Click" Margin="12,0,0,0" />
                         </Grid>
 
-                        <Rectangle Height="1" Fill="{StaticResource DividerBrush}" Margin="0,14,0,14" />
+                        <Rectangle Height="1" Fill="{StaticResource DividerBrush}" Margin="{DynamicResource DividerGap}" />
 
                         <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto">
-                            <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,16,16">
+                            <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Margin="{DynamicResource FactGapRB}">
                                 <TextBlock Classes="label" Text="Package name" />
                                 <TextBlock Classes="fact" Classes.warn="{Binding PackageNameIsOffFormat}" Text="{Binding PackageNameText}" />
                             </StackPanel>
 
-                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,16">
+                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="{DynamicResource FactGapB}">
                                 <TextBlock Classes="label" Text="Version" />
                                 <TextBlock Classes="fact">
                                     <Run Text="{Binding VersionNameText}" />
@@ -61,22 +61,22 @@
                                 </TextBlock>
                             </StackPanel>
 
-                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,16,16">
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="{DynamicResource FactGapRB}">
                                 <TextBlock Classes="label" Text="Minimum SDK" />
                                 <TextBlock Classes="fact" Text="{Binding MinSdkText}" />
                             </StackPanel>
 
-                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,16,16">
+                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="{DynamicResource FactGapRB}">
                                 <TextBlock Classes="label" Text="Target SDK" />
                                 <TextBlock Classes="fact" Classes.warn="{Binding TargetSdkIsLow}" Text="{Binding TargetSdkText}" />
                             </StackPanel>
 
-                            <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,16">
+                            <StackPanel Grid.Row="1" Grid.Column="2" Margin="{DynamicResource FactGapB}">
                                 <TextBlock Classes="label" Text="Native code (ABIs)" />
                                 <TextBlock Classes="fact" Text="{Binding AbisText}" />
                             </StackPanel>
 
-                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,16,0">
+                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="{DynamicResource FactGapR}">
                                 <TextBlock Classes="label" Text="{Binding StoreSizeLabel}" />
                                 <StackPanel Orientation="Horizontal" Spacing="14">
                                     <TextBlock Classes="fact" Text="{Binding StoreSizeText}" />
@@ -97,7 +97,7 @@
                             </StackPanel>
                         </Grid>
 
-                        <ItemsControl ItemsSource="{Binding Warnings}" Margin="0,16,0,0">
+                        <ItemsControl ItemsSource="{Binding Warnings}" Margin="{DynamicResource BlockGap}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border Background="{StaticResource WarningTintBrush}" CornerRadius="6" Padding="10,7" Margin="0,0,0,6">
@@ -131,10 +131,10 @@
                 </Border>
 
                 <!-- Options: greyed out until a file is loaded -->
-                <Grid Margin="0,18,0,0" ColumnDefinitions="*,16,*" IsEnabled="{Binding HasPackage}" Classes.dim="{Binding !HasPackage}">
+                <Grid x:Name="OptionsGrid" Margin="{DynamicResource SectionGap}" ColumnDefinitions="*,16,*" IsEnabled="{Binding HasPackage}" Classes.dim="{Binding !HasPackage}">
 
                     <!-- Device + install options -->
-                    <Border Grid.Column="0" Classes="card">
+                    <Border x:Name="DeviceCard" Grid.Column="0" Classes="card">
                         <StackPanel>
                             <TextBlock Classes="section" Text="Target device" />
                             <Grid ColumnDefinitions="*,Auto">
@@ -163,7 +163,13 @@
                             <TextBlock Margin="0,8,0,0" FontSize="12" TextWrapping="Wrap" Classes="muted"
                                        Classes.err="{Binding Devices.StatusIsError}" Text="{Binding Devices.StatusText}" />
 
-                            <Rectangle Height="1" Fill="{StaticResource DividerBrush}" Margin="0,16,0,16" />
+                            <!-- Only when a Fire device is connected -->
+                            <Button x:Name="ResetAmazonButton" Content="Reset Amazon Appstore State" Click="ResetAmazon_Click"
+                                    HorizontalAlignment="Left" Margin="0,8,0,0" Padding="14,5" IsVisible="{Binding Devices.HasAmazonDevice}"
+                                    AutomationProperties.AutomationId="ResetAmazonButton"
+                                    ToolTip.Tip="Force-stops the Amazon Appstore (com.amazon.venezia) and clears its data on the connected Fire device" />
+
+                            <Rectangle Height="1" Fill="{StaticResource DividerBrush}" Margin="{DynamicResource DividerGap}" />
 
                             <TextBlock Classes="section" Text="Install options" />
 
@@ -186,7 +192,7 @@
                     </Border>
 
                     <!-- Signing -->
-                    <Border Grid.Column="2" Classes="card">
+                    <Border x:Name="SigningCard" Grid.Column="2" Classes="card">
                         <StackPanel>
                             <TextBlock Classes="section" Text="Signing" />
                             <CheckBox x:Name="SignCheckBox" AutomationProperties.Name="Sign APK"
@@ -220,10 +226,10 @@
                                 <TextBlock Classes="muted" FontSize="12" Margin="0,4,0,0" Text="{Binding Signing.Notice}"
                                            IsVisible="{Binding Signing.Notice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
-                                <TextBlock Classes="label" Text="Keystore password" Margin="0,14,0,4" />
+                                <TextBlock Classes="label" Text="Keystore password" Margin="{DynamicResource LabelGap}" />
                                 <c:SecretBox Secret="{Binding Signing.StorePassword}" />
 
-                                <TextBlock Classes="label" Text="Alias" Margin="0,14,0,4" />
+                                <TextBlock Classes="label" Text="Alias" Margin="{DynamicResource LabelGap}" />
                                 <ComboBox x:Name="AliasCombo" IsEditable="True" ItemsSource="{Binding Signing.Aliases}"
                                           Text="{Binding Signing.Alias}" HorizontalAlignment="Stretch" MinHeight="32" />
                                 <TextBlock Margin="0,4,0,0" FontSize="12" TextWrapping="Wrap" Classes="muted"
@@ -231,7 +237,7 @@
                                            Text="{Binding Signing.AliasStatus}"
                                            IsVisible="{Binding Signing.AliasStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
-                                <TextBlock Classes="label" Margin="0,14,0,4">
+                                <TextBlock Classes="label" Margin="{DynamicResource LabelGap}">
                                     <Run Text="Alias password" /><Run Text="  (blank = same as keystore password)" FontSize="11" />
                                 </TextBlock>
                                 <c:SecretBox Secret="{Binding Signing.AliasPassword}" />
@@ -243,16 +249,16 @@
         </ScrollViewer>
 
         <!-- Actions: pinned so they never scroll out of view -->
-        <Grid Grid.Row="1" Margin="28,2,28,12" ColumnDefinitions="*,Auto">
-            <StackPanel Orientation="Horizontal" Spacing="10">
+        <Grid Grid.Row="1" Margin="{DynamicResource ActionPad}" ColumnDefinitions="*,Auto">
+            <WrapPanel Orientation="Horizontal">
                 <Button x:Name="InstallButton" Classes="accent" Click="Install_Click" IsEnabled="{Binding CanInstall}"
-                        Padding="22,9" AutomationProperties.AutomationId="InstallButton" AutomationProperties.Name="{Binding InstallButtonText}">
+                        Padding="{DynamicResource BtnPad}" Margin="{DynamicResource BtnGap}" AutomationProperties.AutomationId="InstallButton" AutomationProperties.Name="{Binding InstallButtonText}">
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <c:Icon Kind="play" Width="14" Height="14" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding InstallButtonText}" FontWeight="SemiBold" />
                     </StackPanel>
                 </Button>
-                <Button x:Name="SaveButton" Padding="22,9" Click="Save_Click" IsEnabled="{Binding CanSave}"
+                <Button x:Name="SaveButton" Padding="{DynamicResource BtnPad}" Margin="{DynamicResource BtnGap}" Click="Save_Click" IsEnabled="{Binding CanSave}"
                         AutomationProperties.AutomationId="SaveButton" AutomationProperties.Name="{Binding SaveButtonText}"
                         ToolTip.Tip="Build an installable APK from this file (signed as set above) and save it where you choose">
                     <StackPanel Orientation="Horizontal" Spacing="10">
@@ -261,7 +267,7 @@
                     </StackPanel>
                 </Button>
                 <!-- Only exists once FTP details have been entered in Settings -->
-                <Button x:Name="SaveFtpButton" Padding="22,9" Click="SaveFtp_Click" IsEnabled="{Binding CanSave}"
+                <Button x:Name="SaveFtpButton" Padding="{DynamicResource BtnPad}" Margin="{DynamicResource BtnGap}" Click="SaveFtp_Click" IsEnabled="{Binding CanSave}"
                         IsVisible="{Binding FtpConfigured}" AutomationProperties.AutomationId="SaveFtpButton" AutomationProperties.Name="{Binding SaveFtpButtonText}"
                         ToolTip.Tip="Build the APK (signed as set above) and upload it to the FTP folder set in Settings">
                     <StackPanel Orientation="Horizontal" Spacing="10">
@@ -270,7 +276,7 @@
                     </StackPanel>
                 </Button>
                 <!-- Only for an AAB input, and only once FTP details exist: uploads the original bundle untouched -->
-                <Button x:Name="SaveAabFtpButton" Padding="22,9" Click="SaveAabFtp_Click" IsEnabled="{Binding CanInstall}"
+                <Button x:Name="SaveAabFtpButton" Padding="{DynamicResource BtnPad}" Margin="{DynamicResource BtnGap}" Click="SaveAabFtp_Click" IsEnabled="{Binding CanInstall}"
                         IsVisible="{Binding ShowSaveAabFtp}" AutomationProperties.AutomationId="SaveAabFtpButton" AutomationProperties.Name="Save AAB to FTP"
                         ToolTip.Tip="Upload the AAB you dragged in, as it is, to the FTP folder set in Settings">
                     <StackPanel Orientation="Horizontal" Spacing="10">
@@ -278,16 +284,16 @@
                         <TextBlock Text="Save AAB to FTP" />
                     </StackPanel>
                 </Button>
-            </StackPanel>
+            </WrapPanel>
 
-            <Button x:Name="SettingsButton" Grid.Column="1" Classes="icon" Margin="0" MinWidth="44" Click="Settings_Click"
+            <Button x:Name="SettingsButton" Grid.Column="1" Classes="icon" Margin="0" VerticalAlignment="Top" MinHeight="38" MinWidth="44" Click="Settings_Click"
                     AutomationProperties.Name="Settings" AutomationProperties.AutomationId="SettingsButton" ToolTip.Tip="Settings">
                 <c:Icon Kind="cog" Width="20" Height="20" />
             </Button>
         </Grid>
 
         <!-- Status, results and errors -->
-        <Border Grid.Row="2" Classes="card" Margin="28,0,28,10" Padding="16,12">
+        <Border Grid.Row="2" Classes="card" Margin="{DynamicResource StatusPad}" Padding="{DynamicResource StatusInnerPad}">
             <StackPanel>
                 <Grid ColumnDefinitions="Auto,*,Auto">
                     <c:Icon Width="18" Height="18" Margin="0,0,10,0" VerticalAlignment="Center"
@@ -385,7 +391,7 @@
         </Border>
 
         <!-- Footer: one entry per tool; only the missing ones are red -->
-        <ItemsControl Grid.Row="3" Margin="30,0,28,10" ItemsSource="{Binding ToolItems}">
+        <ItemsControl Grid.Row="3" Margin="{DynamicResource FooterPad}" ItemsSource="{Binding ToolItems}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <WrapPanel />

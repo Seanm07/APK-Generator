@@ -29,6 +29,8 @@ public partial class MainWindow : Window
             Height = s.WindowHeight;
         }
 
+        SizeChanged += (_, e) => ApplyLayout(e.NewSize);
+
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
@@ -76,6 +78,28 @@ public partial class MainWindow : Window
     {
         if (_opened) _ = _vm.LoadFileAsync(path);
         else _pendingFile = path;
+    }
+
+    // ------------------------------------------------------------------ responsive layout
+
+    private bool? _narrow;
+
+    private void ApplyLayout(Size size)
+    {
+        Density.Apply(size.Width < 960 || size.Height < 820);   // tighter margins and paddings
+        SetNarrow(size.Width < 760);                            // device and signing cards stack instead of sitting side by side
+    }
+
+    private void SetNarrow(bool narrow)
+    {
+        if (_narrow == narrow) return;
+        _narrow = narrow;
+
+        OptionsGrid.ColumnDefinitions = new ColumnDefinitions(narrow ? "*" : "*,16,*");
+        OptionsGrid.RowDefinitions = new RowDefinitions(narrow ? "Auto,Auto" : "");
+        Grid.SetColumn(SigningCard, narrow ? 0 : 2);
+        Grid.SetRow(SigningCard, narrow ? 1 : 0);
+        SigningCard.Margin = narrow ? new Thickness(0, 8, 0, 0) : new Thickness(0);
     }
 
     // ------------------------------------------------------------------ drag & drop
@@ -184,6 +208,7 @@ public partial class MainWindow : Window
     private void JobCancel_Click(object? sender, RoutedEventArgs e) { if (Job(sender) is { } j) _vm.CancelJob(j); }
     private void JobDismiss_Click(object? sender, RoutedEventArgs e) { if (Job(sender) is { } j) _vm.DismissJob(j); }
     private void JobShowInFolder_Click(object? sender, RoutedEventArgs e) { if (Job(sender) is { } j) _vm.ShowJobInFolder(j); }
+    private async void ResetAmazon_Click(object? sender, RoutedEventArgs e) => await _vm.ResetAmazonAppstoreAsync();
     private void CancelAll_Click(object? sender, RoutedEventArgs e) => _vm.Cancel();
 
     private async void JobCopyError_Click(object? sender, RoutedEventArgs e)
