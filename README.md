@@ -4,7 +4,7 @@ Drag an `.aab` or `.apk` to get information about the build.
 You can then optionally sign it, save it as an APK, or install to connected devices.
 Also includes functionality for directly uploading built APKs to FTP.
 
-![APK Generator preview](docs/preview.png)
+![APK Generator preview](docs/preview.png) 
 
 ## What is it
 
